@@ -1,0 +1,47 @@
+# Godot 4 specific
+.godot/
+
+# Exported builds
+export/
+builds/
+*.exe
+*.x86_64
+*.pck
+*.apk
+*.aab
+*.ipa
+
+# Mono/.NET (if used later)
+.mono/
+data_*/
+mono_crash.*.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Python server (for future online server)
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv/
+venv/
+
+# Test reports
+reports/
+
+# Logs
+*.log
