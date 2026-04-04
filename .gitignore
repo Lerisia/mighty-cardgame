@@ -1,5 +1,7 @@
 # Godot 4 specific
 .godot/
+*.uid
+*.import
 
 # Exported builds
 export/
