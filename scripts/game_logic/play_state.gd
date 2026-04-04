@@ -7,18 +7,14 @@ var role: Role = Role.OPPOSITION
 var hand: Array = []
 var point_cards: Array = []
 var discarded: Array = []
-var friend_call_card = null
-var friend_reveal_card = null
-var friend_revealed: bool = false
+var is_friend: bool = false
 
 
 func play_card(card) -> bool:
-	var idx := hand.find(card)
+	var idx: int = hand.find(card)
 	if idx < 0:
 		return false
 	hand.remove_at(idx)
-	if friend_reveal_card != null and card == friend_reveal_card:
-		friend_revealed = true
 	return true
 
 
@@ -30,6 +26,12 @@ func add_point_cards(cards: Array) -> void:
 
 func get_point_count() -> int:
 	return point_cards.size()
+
+
+func clear_point_cards() -> Array:
+	var cards: Array = point_cards.duplicate()
+	point_cards = []
+	return cards
 
 
 func set_discarded(cards: Array) -> void:

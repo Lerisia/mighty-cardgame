@@ -17,15 +17,12 @@ func test_initial_state() -> void:
 	assert_int(state.hand.size()).is_equal(0)
 	assert_int(state.point_cards.size()).is_equal(0)
 	assert_int(state.discarded.size()).is_equal(0)
-	assert_object(state.friend_call_card).is_null()
-	assert_object(state.friend_reveal_card).is_null()
-	assert_bool(state.friend_revealed).is_false()
+	assert_bool(state.is_friend).is_false()
 
 
 func test_set_hand() -> void:
 	var state = PlayStateScript.new()
-	var hand = _make_hand()
-	state.hand = hand
+	state.hand = _make_hand()
 	assert_int(state.hand.size()).is_equal(10)
 
 
@@ -69,6 +66,17 @@ func test_get_point_count() -> void:
 	assert_int(state.get_point_count()).is_equal(1)
 
 
+func test_clear_point_cards() -> void:
+	var state = PlayStateScript.new()
+	state.add_point_cards([
+		CardScript.new(CardScript.Suit.SPADE, CardScript.Rank.ACE),
+		CardScript.new(CardScript.Suit.HEART, CardScript.Rank.KING),
+	])
+	var moved = state.clear_point_cards()
+	assert_int(moved.size()).is_equal(2)
+	assert_int(state.point_cards.size()).is_equal(0)
+
+
 func test_declarer_discard() -> void:
 	var state = PlayStateScript.new()
 	state.role = PlayStateScript.Role.DECLARER
@@ -79,33 +87,6 @@ func test_declarer_discard() -> void:
 	]
 	state.set_discarded(cards)
 	assert_int(state.discarded.size()).is_equal(3)
-
-
-func test_friend_call_card() -> void:
-	var state = PlayStateScript.new()
-	state.role = PlayStateScript.Role.DECLARER
-	var call_card = CardScript.new(CardScript.Suit.HEART, CardScript.Rank.ACE)
-	state.friend_call_card = call_card
-	assert_str(state.friend_call_card.to_string()).is_equal("HA")
-
-
-func test_friend_reveal_card() -> void:
-	var state = PlayStateScript.new()
-	state.role = PlayStateScript.Role.FRIEND
-	var reveal_card = CardScript.new(CardScript.Suit.HEART, CardScript.Rank.ACE)
-	state.friend_reveal_card = reveal_card
-	assert_str(state.friend_reveal_card.to_string()).is_equal("HA")
-	assert_bool(state.friend_revealed).is_false()
-
-
-func test_friend_revealed_on_play() -> void:
-	var state = PlayStateScript.new()
-	state.role = PlayStateScript.Role.FRIEND
-	var reveal_card = CardScript.new(CardScript.Suit.HEART, CardScript.Rank.ACE)
-	state.friend_reveal_card = reveal_card
-	state.hand = [reveal_card, CardScript.new(CardScript.Suit.CLUB, CardScript.Rank.TWO)]
-	state.play_card(reveal_card)
-	assert_bool(state.friend_revealed).is_true()
 
 
 func test_role_assignment() -> void:

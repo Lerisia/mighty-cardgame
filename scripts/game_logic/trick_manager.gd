@@ -6,10 +6,11 @@ const BiddingStateScript = preload("res://scripts/game_logic/bidding_state.gd")
 const DeclarerPhaseScript = preload("res://scripts/game_logic/declarer_phase.gd")
 const CardValidatorScript = preload("res://scripts/game_logic/card_validator.gd")
 const TrickJudgeScript = preload("res://scripts/game_logic/trick_judge.gd")
+const PlayStateScript = preload("res://scripts/game_logic/play_state.gd")
 
 const TOTAL_TRICKS := 10
 
-var hands: Array
+var states: Array = []
 var player_count: int
 var declarer_index: int
 var giruda: int
@@ -25,20 +26,30 @@ var last_trick_winner: int = -1
 
 var friend_index: int = -1
 var friend_revealed: bool = false
-
-var player_point_cards: Array = []
 var face_down_pile: Array = []
 
 
-func _init(p_hands: Array, p_declarer: int, p_giruda: int, p_friend_call: Dictionary) -> void:
-	hands = p_hands
-	player_count = hands.size()
+func _init(p_states: Array, p_declarer: int, p_giruda: int, p_friend_call: Dictionary) -> void:
+	states = p_states
+	player_count = states.size()
 	declarer_index = p_declarer
 	giruda = p_giruda
 	friend_call = p_friend_call
 	current_turn = declarer_index
-	for i in range(player_count):
-		player_point_cards.append([])
+
+	states[declarer_index].role = PlayStateScript.Role.DECLARER
+
+	if friend_call["type"] == DeclarerPhaseScript.FriendCallType.CARD:
+		for i in range(player_count):
+			if i == declarer_index:
+				continue
+			for card in states[i].hand:
+				if _matches_friend_card(card):
+					states[i].is_friend = true
+					break
+	elif friend_call["type"] == DeclarerPhaseScript.FriendCallType.PLAYER:
+		var fi: int = friend_call["player_index"]
+		states[fi].is_friend = true
 
 
 func is_game_over() -> bool:
@@ -48,19 +59,20 @@ func is_game_over() -> bool:
 func play_card(player_index: int, card) -> bool:
 	if player_index != current_turn:
 		return false
-	if not _is_in_hand(player_index, card):
+	var state = states[player_index]
+	if not state.hand.has(card):
 		return false
 
 	var is_lead := current_trick.size() == 0
 
 	if is_lead:
-		if not CardValidatorScript.can_lead(card, hands[player_index], giruda, trick_number):
+		if not CardValidatorScript.can_lead(card, state.hand, giruda, trick_number):
 			return false
 	else:
-		if not CardValidatorScript.can_follow(card, hands[player_index], lead_suit, giruda, joker_called):
+		if not CardValidatorScript.can_follow(card, state.hand, lead_suit, giruda, joker_called):
 			return false
 
-	_remove_from_hand(player_index, card)
+	state.play_card(card)
 	current_trick.append(card)
 	current_trick_players.append(player_index)
 
@@ -84,10 +96,11 @@ func play_card_with_joker_suit(player_index: int, card, designated_suit: int) ->
 		return false
 	if current_trick.size() != 0:
 		return false
-	if not _is_in_hand(player_index, card):
+	var state = states[player_index]
+	if not state.hand.has(card):
 		return false
 
-	_remove_from_hand(player_index, card)
+	state.play_card(card)
 	current_trick.append(card)
 	current_trick_players.append(player_index)
 	lead_suit = designated_suit
@@ -134,7 +147,7 @@ func _resolve_trick() -> void:
 	else:
 		for card in current_trick:
 			if card.is_point_card:
-				player_point_cards[winner].append(card)
+				states[winner].point_cards.append(card)
 			else:
 				face_down_pile.append(card)
 
@@ -150,23 +163,12 @@ func _resolve_trick() -> void:
 	current_turn = last_trick_winner
 
 
-func _is_ruling_party(player_index: int) -> bool:
-	if player_index == declarer_index:
-		return true
-	if friend_revealed and player_index == friend_index:
-		return true
-	return false
-
-
-func _move_points_to_face_down(player_index: int) -> void:
-	face_down_pile.append_array(player_point_cards[player_index])
-	player_point_cards[player_index] = []
-
-
 func _reveal_friend(player_index: int) -> void:
 	friend_index = player_index
 	friend_revealed = true
-	_move_points_to_face_down(player_index)
+	states[player_index].role = PlayStateScript.Role.FRIEND
+	var moved: Array = states[player_index].clear_point_cards()
+	face_down_pile.append_array(moved)
 
 
 func _check_friend_reveal(player_index: int, card) -> void:
@@ -174,23 +176,26 @@ func _check_friend_reveal(player_index: int, card) -> void:
 		return
 	if friend_call["type"] != DeclarerPhaseScript.FriendCallType.CARD:
 		return
+	if _matches_friend_card(card):
+		_reveal_friend(player_index)
+
+
+func _matches_friend_card(card) -> bool:
 	var fc = friend_call["card"]
 	if card.is_joker and fc.is_joker:
-		_reveal_friend(player_index)
-		return
+		return true
 	if not card.is_joker and not fc.is_joker:
 		if card.suit == fc.suit and card.rank == fc.rank:
-			_reveal_friend(player_index)
+			return true
+	return false
 
 
-func _is_in_hand(player_index: int, card) -> bool:
-	return hands[player_index].has(card)
-
-
-func _remove_from_hand(player_index: int, card) -> void:
-	var idx: int = hands[player_index].find(card)
-	if idx >= 0:
-		hands[player_index].remove_at(idx)
+func _is_ruling_party(player_index: int) -> bool:
+	if player_index == declarer_index:
+		return true
+	if friend_revealed and player_index == friend_index:
+		return true
+	return false
 
 
 func _advance_turn() -> void:
