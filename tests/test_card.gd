@@ -51,3 +51,30 @@ func test_to_string_normal_cards() -> void:
 func test_to_string_joker() -> void:
 	var card = CardScript.create_joker()
 	assert_str(card.to_string()).is_equal("Joker")
+
+
+func test_point_cards() -> void:
+	for rank in [CardScript.Rank.ACE, CardScript.Rank.KING, CardScript.Rank.QUEEN, CardScript.Rank.JACK, CardScript.Rank.TEN]:
+		var card = CardScript.new(CardScript.Suit.SPADE, rank)
+		assert_bool(card.is_point_card).is_true()
+
+
+func test_non_point_cards() -> void:
+	for rank in [CardScript.Rank.TWO, CardScript.Rank.THREE, CardScript.Rank.FOUR, CardScript.Rank.FIVE, CardScript.Rank.SIX, CardScript.Rank.SEVEN, CardScript.Rank.EIGHT, CardScript.Rank.NINE]:
+		var card = CardScript.new(CardScript.Suit.SPADE, rank)
+		assert_bool(card.is_point_card).is_false()
+
+
+func test_joker_not_point_card() -> void:
+	var card = CardScript.create_joker()
+	assert_bool(card.is_point_card).is_false()
+
+
+func test_total_point_cards_in_deck() -> void:
+	var count := 0
+	for suit in CardScript.Suit.values():
+		for rank in CardScript.Rank.values():
+			var card = CardScript.new(suit, rank)
+			if card.is_point_card:
+				count += 1
+	assert_int(count).is_equal(20)

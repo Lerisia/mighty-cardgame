@@ -19,6 +19,13 @@ func _init(p_suit: Suit = Suit.SPADE, p_rank: Rank = Rank.TWO, p_is_joker: bool 
 	is_joker = p_is_joker
 
 
+var is_point_card: bool:
+	get:
+		if is_joker:
+			return false
+		return rank >= Rank.TEN
+
+
 func _to_string() -> String:
 	if is_joker:
 		return "Joker"
