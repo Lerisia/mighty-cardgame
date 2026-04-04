@@ -15,7 +15,7 @@ func test_initial_state() -> void:
 	var state = PlayStateScript.new()
 	assert_int(state.role).is_equal(PlayStateScript.Role.OPPOSITION)
 	assert_int(state.hand.size()).is_equal(0)
-	assert_int(state.tricks_won.size()).is_equal(0)
+	assert_int(state.point_cards.size()).is_equal(0)
 	assert_int(state.discarded.size()).is_equal(0)
 	assert_object(state.friend_call_card).is_null()
 	assert_object(state.friend_reveal_card).is_null()
@@ -46,15 +46,27 @@ func test_play_card_not_in_hand_returns_false() -> void:
 	assert_int(state.hand.size()).is_equal(10)
 
 
-func test_add_tricks_won() -> void:
+func test_add_point_cards_filters() -> void:
 	var state = PlayStateScript.new()
 	var trick := [
 		CardScript.new(CardScript.Suit.SPADE, CardScript.Rank.ACE),
+		CardScript.new(CardScript.Suit.HEART, CardScript.Rank.TWO),
 		CardScript.new(CardScript.Suit.HEART, CardScript.Rank.KING),
+		CardScript.new(CardScript.Suit.CLUB, CardScript.Rank.FIVE),
+		CardScript.new(CardScript.Suit.DIAMOND, CardScript.Rank.TEN),
 	]
-	state.add_trick(trick)
-	assert_int(state.tricks_won.size()).is_equal(1)
-	assert_int(state.tricks_won[0].size()).is_equal(2)
+	state.add_point_cards(trick)
+	assert_int(state.point_cards.size()).is_equal(3)
+
+
+func test_get_point_count() -> void:
+	var state = PlayStateScript.new()
+	var trick := [
+		CardScript.new(CardScript.Suit.SPADE, CardScript.Rank.ACE),
+		CardScript.new(CardScript.Suit.HEART, CardScript.Rank.TWO),
+	]
+	state.add_point_cards(trick)
+	assert_int(state.get_point_count()).is_equal(1)
 
 
 func test_declarer_discard() -> void:

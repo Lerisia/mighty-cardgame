@@ -5,7 +5,7 @@ enum Role { OPPOSITION, DECLARER, FRIEND }
 
 var role: Role = Role.OPPOSITION
 var hand: Array = []
-var tricks_won: Array = []
+var point_cards: Array = []
 var discarded: Array = []
 var friend_call_card = null
 var friend_reveal_card = null
@@ -22,8 +22,14 @@ func play_card(card) -> bool:
 	return true
 
 
-func add_trick(trick: Array) -> void:
-	tricks_won.append(trick)
+func add_point_cards(cards: Array) -> void:
+	for card in cards:
+		if card.is_point_card:
+			point_cards.append(card)
+
+
+func get_point_count() -> int:
+	return point_cards.size()
 
 
 func set_discarded(cards: Array) -> void:
