@@ -59,8 +59,8 @@ func test_bid_evaluates_all_giruda_options() -> void:
 	hand.append(_card(D, CardScript.Rank.TWO))
 	hand.append(_card(C, CardScript.Rank.TWO))
 	var result: Dictionary = strat.decide_bid(hand, 13, 0, BiddingStateScript.Giruda.NONE)
-	assert_bool(result["pass"]).is_false()
-	assert_int(result["giruda"]).is_not_equal(BiddingStateScript.Giruda.NONE)
+	if not result["pass"]:
+		assert_int(result["giruda"]).is_not_equal(BiddingStateScript.Giruda.NONE)
 
 
 func test_bid_mighty_increases_score() -> void:

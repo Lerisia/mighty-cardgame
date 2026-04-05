@@ -55,13 +55,16 @@ func decide_bid(hand: Array, min_bid: int, current_highest: int, current_giruda:
 
 	var target: int = _score_to_bid(best_score, min_bid)
 
-	if target <= current_highest:
-		if best_giruda == BiddingStateScript.Giruda.NO_GIRUDA and current_giruda != BiddingStateScript.Giruda.NO_GIRUDA:
-			if target >= current_highest:
-				return {"pass": false, "bid": current_highest, "giruda": best_giruda}
+	if min_bid > target:
 		return {"pass": true}
 
-	return {"pass": false, "bid": target, "giruda": best_giruda}
+	var bid_value: int
+	if current_highest < target and current_highest > 0:
+		bid_value = current_highest + 1
+	else:
+		bid_value = min_bid
+
+	return {"pass": false, "bid": bid_value, "giruda": best_giruda}
 
 
 func decide_giruda_change(hand: Array, bid: int, giruda: int, raise_amount: int) -> Dictionary:
