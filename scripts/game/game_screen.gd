@@ -13,11 +13,11 @@ const DEAL_FLY_DURATION := 0.22
 const DEAL_PATTERN := [1, 2, 3, 4]
 
 const SUIT_DISPLAY := {
-	BiddingStateScript.Giruda.SPADE: "♠",
-	BiddingStateScript.Giruda.DIAMOND: "♦",
-	BiddingStateScript.Giruda.HEART: "♥",
-	BiddingStateScript.Giruda.CLUB: "♣",
-	BiddingStateScript.Giruda.NO_GIRUDA: "X",
+	BiddingStateScript.Giruda.SPADE: "스페이드",
+	BiddingStateScript.Giruda.DIAMOND: "다이아",
+	BiddingStateScript.Giruda.HEART: "하트",
+	BiddingStateScript.Giruda.CLUB: "클로버",
+	BiddingStateScript.Giruda.NO_GIRUDA: "노기루",
 }
 
 const MIN_BID := 13
@@ -113,9 +113,14 @@ func _show_bid_panel() -> void:
 	selected_suit = BiddingStateScript.Giruda.SPADE
 	selected_bid = MIN_BID
 	_update_bid_display()
-	$ElectionLabel.text = "제 %d회 선거" % election_round
-	$ElectionLabel.visible = true
-	$ElectionLabel.z_index = 100
+	$ElectionPanel/ElectionLabel.text = "제 %d회 선거" % election_round
+	$ElectionPanel.visible = true
+	$ElectionPanel.z_index = 100
+	var el_style := StyleBoxFlat.new()
+	el_style.bg_color = Color(0, 0, 0, 0.6)
+	el_style.set_corner_radius_all(6)
+	el_style.set_content_margin_all(8)
+	$ElectionPanel.add_theme_stylebox_override("panel", el_style)
 	$BidPanel.visible = true
 	$BidPanel.z_index = 100
 	_style_bid_panel()
@@ -123,23 +128,46 @@ func _show_bid_panel() -> void:
 
 func _style_bid_panel() -> void:
 	var vh: float = get_viewport_rect().size.y
-	var big_font: int = int(vh / 15.0)
-	var btn_font: int = int(vh / 28.0)
-	var label_font: int = int(vh / 25.0)
+	var big_font: int = int(vh / 12.0)
+	var btn_font: int = int(vh / 22.0)
+	var label_font: int = int(vh / 20.0)
 	$BidPanel/VBox/TopRow/BidDisplay.add_theme_font_size_override("font_size", big_font)
 	$BidPanel/VBox/TopRow/BidDisplay.add_theme_font_override("font", _get_bold_font())
-	$ElectionLabel.add_theme_font_size_override("font_size", label_font)
-	$ElectionLabel.add_theme_font_override("font", _get_bold_font())
+	$ElectionPanel/ElectionLabel.add_theme_font_size_override("font_size", label_font)
+	$ElectionPanel/ElectionLabel.add_theme_font_override("font", _get_bold_font())
+	$ElectionPanel/ElectionLabel.add_theme_color_override("font_color", Color.WHITE)
 	for btn_name in ["BidButton", "PassButton", "DealMissButton"]:
 		var btn: Button = $BidPanel/VBox/BottomRow.get_node(btn_name)
 		btn.add_theme_font_size_override("font_size", btn_font)
 	$BidPanel/VBox/TopRow/ArrowBox/UpButton.add_theme_font_size_override("font_size", btn_font)
 	$BidPanel/VBox/TopRow/ArrowBox/DownButton.add_theme_font_size_override("font_size", btn_font)
+	_update_suit_highlight()
 
 
 func _update_bid_display() -> void:
 	var suit_str: String = SUIT_DISPLAY[selected_suit]
 	$BidPanel/VBox/TopRow/BidDisplay.text = "%s %d" % [suit_str, selected_bid]
+	_update_suit_highlight()
+
+
+func _update_suit_highlight() -> void:
+	var suit_map := {
+		BiddingStateScript.Giruda.SPADE: "Spade",
+		BiddingStateScript.Giruda.DIAMOND: "Diamond",
+		BiddingStateScript.Giruda.HEART: "Heart",
+		BiddingStateScript.Giruda.CLUB: "Club",
+		BiddingStateScript.Giruda.NO_GIRUDA: "NoGiruda",
+	}
+	var grid = $BidPanel/VBox/TopRow/SuitGrid
+	for suit_val in suit_map:
+		var node_name: String = suit_map[suit_val]
+		var btn = grid.get_node_or_null(node_name)
+		if btn == null:
+			continue
+		if suit_val == selected_suit:
+			btn.modulate = Color(1.0, 0.85, 0.3)
+		else:
+			btn.modulate = Color.WHITE
 
 
 func _select_suit(suit: int) -> void:
@@ -161,12 +189,12 @@ func _on_bid_down() -> void:
 
 func _on_bid_submit() -> void:
 	$BidPanel.visible = false
-	$ElectionLabel.visible = false
+	$ElectionPanel.visible = false
 
 
 func _on_bid_pass() -> void:
 	$BidPanel.visible = false
-	$ElectionLabel.visible = false
+	$ElectionPanel.visible = false
 
 
 const CARD_CORNER_RADIUS := 4.0
