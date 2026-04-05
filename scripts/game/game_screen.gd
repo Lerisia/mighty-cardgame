@@ -139,6 +139,8 @@ func _play_shuffle_animation() -> void:
 
 	var tween: Tween = create_tween()
 
+	tween.tween_callback(func(): _play_sfx(_sfx_shuffle))
+
 	for i in range(num_cards):
 		var card: Control = cards[i]
 		var target: Vector2 = left_pos if i % 2 == 0 else right_pos
@@ -193,8 +195,11 @@ func _play_deal_animation() -> void:
 				var target_pos: Vector2 = CardUtilScript.get_card_position(get_viewport(), target_player, card_idx, 10)
 				var is_p0: bool = target_player == 0
 				var p0_idx: int = p0_deal_index
+				var is_first_in_bundle: bool = c == 0
 
 				tween.tween_callback(func():
+					if is_first_in_bundle:
+						_play_sfx(_sfx_slide1 if randi() % 2 == 0 else _sfx_slide2)
 					var card: Control
 					var sz: Vector2
 					if is_p0:
@@ -244,6 +249,7 @@ func _sort_hand(hand: Array) -> Array:
 
 
 func _sort_and_rearrange_p0() -> void:
+	_play_sfx(_sfx_fan)
 	var sorted_hand: Array = _sort_hand(hands[0])
 	var card_size: Vector2 = CardUtilScript.get_card_size(get_viewport())
 	var total: int = sorted_hand.size()
@@ -276,6 +282,19 @@ func _sort_and_rearrange_p0() -> void:
 
 
 var _bold_font: Font = null
+var _sfx_shuffle: AudioStream = preload("res://assets/sounds/card-shuffle.ogg")
+var _sfx_slide1: AudioStream = preload("res://assets/sounds/card-slide-1.ogg")
+var _sfx_slide2: AudioStream = preload("res://assets/sounds/card-slide-2.ogg")
+var _sfx_fan: AudioStream = preload("res://assets/sounds/card-fan-1.ogg")
+
+
+func _play_sfx(stream: AudioStream) -> void:
+	var player := AudioStreamPlayer.new()
+	player.stream = stream
+	player.bus = "Master"
+	add_child(player)
+	player.play()
+	player.finished.connect(player.queue_free)
 
 
 func _get_bold_font() -> Font:
