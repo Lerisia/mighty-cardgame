@@ -199,7 +199,7 @@ func _play_deal_animation() -> void:
 
 				tween.tween_callback(func():
 					if is_first_in_bundle:
-						_play_sfx(_sfx_slide1 if randi() % 2 == 0 else _sfx_slide2)
+						_play_sfx(_sfx_deal)
 					var card: Control
 					var sz: Vector2
 					if is_p0:
@@ -249,7 +249,7 @@ func _sort_hand(hand: Array) -> Array:
 
 
 func _sort_and_rearrange_p0() -> void:
-	_play_sfx(_sfx_fan)
+	_play_sfx(_sfx_sort)
 	var sorted_hand: Array = _sort_hand(hands[0])
 	var card_size: Vector2 = CardUtilScript.get_card_size(get_viewport())
 	var total: int = sorted_hand.size()
@@ -282,10 +282,10 @@ func _sort_and_rearrange_p0() -> void:
 
 
 var _bold_font: Font = null
-var _sfx_shuffle: AudioStream = preload("res://assets/sounds/card-shuffle.ogg")
-var _sfx_slide1: AudioStream = preload("res://assets/sounds/card-slide-1.ogg")
-var _sfx_slide2: AudioStream = preload("res://assets/sounds/card-slide-2.ogg")
-var _sfx_fan: AudioStream = preload("res://assets/sounds/card-fan-1.ogg")
+var _sfx_shuffle: AudioStream = preload("res://assets/sounds/shuffle.wav")
+var _sfx_deal: AudioStream = preload("res://assets/sounds/draw.wav")
+var _sfx_play: AudioStream = preload("res://assets/sounds/playcard.wav")
+var _sfx_sort: AudioStream = preload("res://assets/sounds/tap.wav")
 
 
 func _play_sfx(stream: AudioStream) -> void:
