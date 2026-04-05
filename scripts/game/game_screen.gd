@@ -30,6 +30,7 @@ const MAX_BID := 20
 var placed_cards: Array = []
 var p0_card_nodes: Array = []
 var crown_nodes: Array = []
+var kitty_card_nodes: Array = []
 var name_labels: Array = []
 var score_labels: Array = []
 var player_card_counts: Array = [0, 0, 0, 0, 0]
@@ -531,8 +532,8 @@ func _move_kitty_to_declarer(declarer: int) -> void:
 	if declarer != 0:
 		var origin: Vector2 = CardUtilScript.get_hand_origin(get_viewport(), declarer)
 		var tween: Tween = create_tween()
-		for i in range(3):
-			var kitty_node = placed_cards[i]
+		for i in range(kitty_card_nodes.size()):
+			var kitty_node = kitty_card_nodes[i]
 			if is_instance_valid(kitty_node):
 				tween.tween_property(kitty_node, "position", origin, 0.3).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
 				tween.tween_callback(func(): _play_sfx(_sfx_deal))
@@ -710,6 +711,7 @@ func _play_deal_animation() -> void:
 		var kitty_offset: Vector2 = Vector2(k * 3, k * 2)
 		_add_card(kitty_card, card_size, deck_pos + kitty_offset)
 		kitty_cards.append(kitty_card)
+		kitty_card_nodes.append(kitty_card)
 
 	var deck_card: Control = _create_card_back(card_size)
 	_add_card(deck_card, card_size, deck_pos)
