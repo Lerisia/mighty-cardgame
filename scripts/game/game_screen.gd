@@ -30,8 +30,9 @@ func _play_shuffle_animation() -> void:
 
 	for i in range(num_cards):
 		var card: TextureRect = _create_card_back(card_size)
-		card.position = card_origin
 		add_child(card)
+		card.size = card_size
+		card.position = card_origin
 		cards.append(card)
 
 	var tween: Tween = create_tween()
