@@ -6,6 +6,10 @@ const DeckScript = preload("res://scripts/game_logic/deck.gd")
 const CardScript = preload("res://scripts/game_logic/card.gd")
 
 const BiddingStateScript = preload("res://scripts/game_logic/bidding_state.gd")
+const BiddingManagerScript = preload("res://scripts/game_logic/bidding_manager.gd")
+const BotManagerScript = preload("res://scripts/ai/bot_manager.gd")
+const BSWStrategyScript = preload("res://scripts/ai/bsw_strategy.gd")
+const XiaoStrategyScript = preload("res://scripts/ai/xiao_strategy.gd")
 
 const CARD_BORDER := 1.0
 const CARD_BORDER_COLOR := Color(0.15, 0.15, 0.15, 1.0)
@@ -38,6 +42,11 @@ var selected_suit: int = BiddingStateScript.Giruda.SPADE
 var selected_bid: int = MIN_BID
 var election_round: int = 1
 
+var bidding_manager = null
+var bots: Array = []
+var bid_labels: Array = [null, null, null, null, null]
+var bidding_active: bool = false
+
 
 func _ready() -> void:
 	dealer_index = randi() % 5
@@ -45,6 +54,11 @@ func _ready() -> void:
 	var result: Dictionary = deck.deal(5)
 	hands = result["hands"]
 	kitty = result["kitty"]
+	for i in range(1, 5):
+		if i % 2 == 0:
+			bots.append(BotManagerScript.new(BSWStrategyScript.new(), i))
+		else:
+			bots.append(BotManagerScript.new(XiaoStrategyScript.new(), i))
 	$TopButtons/ExitButton.pressed.connect(_on_exit_pressed)
 	$ExitConfirmPopup/VBox/Buttons/ConfirmExit.pressed.connect(_on_confirm_exit)
 	$ExitConfirmPopup/VBox/Buttons/CancelExit.pressed.connect(_on_cancel_exit)
@@ -109,21 +123,6 @@ func _setup_bid_panel() -> void:
 	$BidPanel/VBox/BottomRow/PassButton.pressed.connect(_on_bid_pass)
 
 
-func _show_bid_panel() -> void:
-	selected_suit = BiddingStateScript.Giruda.SPADE
-	selected_bid = MIN_BID
-	_update_bid_display()
-	$ElectionPanel/ElectionLabel.text = "제 %d회 선거" % election_round
-	$ElectionPanel.visible = true
-	$ElectionPanel.z_index = 100
-	var el_style := StyleBoxFlat.new()
-	el_style.bg_color = Color(0, 0, 0, 0.6)
-	el_style.set_corner_radius_all(6)
-	el_style.set_content_margin_all(8)
-	$ElectionPanel.add_theme_stylebox_override("panel", el_style)
-	$BidPanel.visible = true
-	$BidPanel.z_index = 100
-	_style_bid_panel()
 
 
 func _style_bid_panel() -> void:
@@ -157,6 +156,13 @@ func _update_bid_display() -> void:
 	var suit_str: String = SUIT_DISPLAY[selected_suit]
 	$BidPanel/VBox/TopRow/BidDisplay.text = "%s %d" % [suit_str, selected_bid]
 	_update_suit_highlight()
+
+	if bidding_manager and bidding_manager.highest_bidder >= 0:
+		var hb: int = bidding_manager.highest_bidder
+		var hg: int = bidding_manager.highest_giruda
+		$ElectionPanel/ElectionLabel.text = "제 %d회 선거\n최고: %s - %s %d" % [election_round, PLAYER_NAMES[hb], SUIT_DISPLAY.get(hg, "?"), bidding_manager.highest_bid]
+	else:
+		$ElectionPanel/ElectionLabel.text = "제 %d회 선거" % election_round
 
 
 func _ensure_gold_borders() -> void:
@@ -221,12 +227,151 @@ func _on_bid_down() -> void:
 
 func _on_bid_submit() -> void:
 	$BidPanel.visible = false
-	$ElectionPanel.visible = false
+	if bidding_manager.place_bid(0, selected_bid, selected_suit):
+		_show_player_bid(0, selected_suit, selected_bid)
+	else:
+		_show_player_bid_text(0, "무효")
+	_continue_bidding()
 
 
 func _on_bid_pass() -> void:
 	$BidPanel.visible = false
+	bidding_manager.pass_turn(0)
+	_show_player_bid_text(0, "패스")
+	_continue_bidding()
+
+
+func _start_bidding() -> void:
+	var bidding_hands: Array = []
+	for h in hands:
+		bidding_hands.append(h.duplicate())
+	bidding_manager = BiddingManagerScript.new(5, dealer_index, bidding_hands, MIN_BID)
+	bidding_active = true
+	$ElectionPanel/ElectionLabel.text = "제 %d회 선거" % election_round
+	$ElectionPanel.visible = true
+	$ElectionPanel.z_index = 100
+	var el_style := StyleBoxFlat.new()
+	el_style.bg_color = Color(0, 0, 0, 0.6)
+	el_style.set_corner_radius_all(6)
+	el_style.set_content_margin_all(8)
+	$ElectionPanel.add_theme_stylebox_override("panel", el_style)
+	_style_election_label()
+	_continue_bidding()
+
+
+func _style_election_label() -> void:
+	var vh: float = get_viewport_rect().size.y
+	var label_font: int = int(vh / 18.0)
+	$ElectionPanel/ElectionLabel.add_theme_font_size_override("font_size", label_font)
+	$ElectionPanel/ElectionLabel.add_theme_font_override("font", _get_bold_font())
+	$ElectionPanel/ElectionLabel.add_theme_color_override("font_color", Color.WHITE)
+
+
+func _continue_bidding() -> void:
+	if bidding_manager.is_finished():
+		_end_bidding()
+		return
+
+	var turn: int = bidding_manager.current_turn
+
+	if turn == 0:
+		_show_bid_panel_for_player()
+	else:
+		await get_tree().create_timer(0.8).timeout
+		_do_bot_bid(turn)
+
+
+func _show_bid_panel_for_player() -> void:
+	if bidding_manager.highest_bid >= MIN_BID:
+		selected_bid = bidding_manager.highest_bid + 1
+		if selected_bid > MAX_BID:
+			selected_bid = MAX_BID
+	else:
+		selected_bid = MIN_BID
+	selected_suit = BiddingStateScript.Giruda.SPADE
+	_update_bid_display()
+
+	var highest_text := ""
+	if bidding_manager.highest_bidder >= 0:
+		var hb: int = bidding_manager.highest_bidder
+		var hg: int = bidding_manager.highest_giruda
+		highest_text = "현재 최고: %s - %s %d" % [PLAYER_NAMES[hb], SUIT_DISPLAY.get(hg, "?"), bidding_manager.highest_bid]
+	else:
+		highest_text = "아직 공약 없음"
+	$BidPanel/VBox/TopRow/BidDisplay.text = "%s\n%s %d" % [highest_text, SUIT_DISPLAY[selected_suit], selected_bid]
+
+	$BidPanel.visible = true
+	$BidPanel.z_index = 100
+	_style_bid_panel()
+
+
+func _do_bot_bid(bot_player: int) -> void:
+	var bot_idx: int = bot_player - 1
+	if bot_idx < 0 or bot_idx >= bots.size():
+		_continue_bidding()
+		return
+
+	var before_bid: int = bidding_manager.highest_bid
+	bots[bot_idx].do_bidding_turn(bidding_manager)
+	var after_bid: int = bidding_manager.highest_bid
+
+	if bidding_manager.states[bot_player].passed:
+		_show_player_bid_text(bot_player, "패스")
+	elif after_bid > before_bid:
+		var g: int = bidding_manager.states[bot_player].bid_giruda
+		_show_player_bid(bot_player, g, after_bid)
+
+	_continue_bidding()
+
+
+func _show_player_bid(player_index: int, giruda: int, bid: int) -> void:
+	var text: String = "%s %d" % [SUIT_DISPLAY.get(giruda, "?"), bid]
+	_show_player_bid_text(player_index, text)
+
+
+func _show_player_bid_text(player_index: int, text: String) -> void:
+	if bid_labels[player_index] != null and is_instance_valid(bid_labels[player_index]):
+		bid_labels[player_index].queue_free()
+
+	var vh: float = get_viewport_rect().size.y
+	var font_size: int = int(vh / 25.0)
+	var label: Label = _create_label(text, font_size, Color.YELLOW)
+	label.z_index = 90
+
+	var origin: Vector2 = CardUtilScript.get_hand_origin(get_viewport(), player_index)
+	var cs: Vector2 = CardUtilScript.get_card_size(get_viewport())
+
+	match player_index:
+		0:
+			var my_cs: Vector2 = CardUtilScript.get_my_card_size(get_viewport())
+			label.position = Vector2(origin.x + CardUtilScript._my_hand_width(my_cs, 10) / 2.0, origin.y - font_size - 10)
+			label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		1:
+			label.position = Vector2(origin.x + cs.x + 10, origin.y)
+		2:
+			label.position = Vector2(origin.x, cs.y * 0.5 + 30)
+		3:
+			var hand_w: float = CardUtilScript._hand_width(cs, 10)
+			label.position = Vector2(origin.x + hand_w / 2.0, cs.y * 0.5 + 30)
+		4:
+			label.position = Vector2(origin.x - font_size * 4, origin.y)
+
+	add_child(label)
+	bid_labels[player_index] = label
+
+
+func _clear_bid_labels() -> void:
+	for i in range(5):
+		if bid_labels[i] != null and is_instance_valid(bid_labels[i]):
+			bid_labels[i].queue_free()
+			bid_labels[i] = null
+
+
+func _end_bidding() -> void:
+	bidding_active = false
 	$ElectionPanel.visible = false
+	$BidPanel.visible = false
+	_clear_bid_labels()
 
 
 const CARD_CORNER_RADIUS := 4.0
@@ -431,7 +576,7 @@ func _sort_and_rearrange_p0() -> void:
 	tween.tween_interval(0.3)
 	tween.tween_callback(_show_player_names)
 	tween.tween_interval(0.5)
-	tween.tween_callback(_show_bid_panel)
+	tween.tween_callback(_start_bidding)
 
 
 var _bold_font: Font = null
