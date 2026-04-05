@@ -280,6 +280,7 @@ func _continue_bidding() -> void:
 	var turn: int = bidding_manager.current_turn
 
 	if turn == 0:
+		await get_tree().create_timer(1.0).timeout
 		_show_bid_panel_for_player()
 	else:
 		await get_tree().create_timer(1.5).timeout
