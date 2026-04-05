@@ -275,11 +275,22 @@ func _sort_and_rearrange_p0() -> void:
 	tween.tween_callback(_show_player_names)
 
 
-func _create_label(text: String, font_size: int, color: Color = Color.WHITE) -> Label:
+var _bold_font: Font = null
+
+
+func _get_bold_font() -> Font:
+	if _bold_font == null:
+		_bold_font = load("res://assets/fonts/NanumSquareRoundB.ttf")
+	return _bold_font
+
+
+func _create_label(text: String, font_size: int, color: Color = Color.WHITE, bold: bool = true) -> Label:
 	var label := Label.new()
 	label.text = text
 	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", color)
+	if bold:
+		label.add_theme_font_override("font", _get_bold_font())
 	return label
 
 
@@ -317,9 +328,9 @@ func _show_player_names() -> void:
 				score_pos = Vector2(hand_right + 15, origin.y + line_h)
 			1:
 				var card_right: float = origin.x + cs.x
-				var card_bottom: float = origin.y + cs.y * CardUtilScript.CARD_OVERLAP_V * 9 + cs.y
-				name_pos = Vector2(card_right + 8, card_bottom + 5)
-				score_pos = Vector2(card_right + 8, card_bottom + 5 + line_h)
+				var card_mid_bottom: float = origin.y + cs.y * CardUtilScript.CARD_OVERLAP_V * 9 * 0.5 + cs.y * 0.5
+				name_pos = Vector2(card_right + 8, card_mid_bottom + 5)
+				score_pos = Vector2(card_right + 8, card_mid_bottom + 5 + line_h)
 			2:
 				var card_bottom: float = cs.y * 0.5
 				name_pos = Vector2(origin.x, card_bottom + 8)
@@ -332,9 +343,9 @@ func _show_player_names() -> void:
 				score_pos = Vector2(right_x - font_size * 3, card_bottom + 8)
 			4:
 				var card_left: float = origin.x
-				var card_bottom: float = origin.y + cs.y * CardUtilScript.CARD_OVERLAP_V * 9 + cs.y
-				name_pos = Vector2(card_left - font_size * 3 - 8, card_bottom + 5)
-				score_pos = Vector2(card_left - font_size * 3 - 8, card_bottom + 5 + line_h)
+				var card_mid_bottom: float = origin.y + cs.y * CardUtilScript.CARD_OVERLAP_V * 9 * 0.5 + cs.y * 0.5
+				name_pos = Vector2(card_left - font_size * 3 - 8, card_mid_bottom + 5)
+				score_pos = Vector2(card_left - font_size * 3 - 8, card_mid_bottom + 5 + line_h)
 
 		name_label.position = name_pos
 		score_label.position = score_pos
