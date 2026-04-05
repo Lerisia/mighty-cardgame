@@ -12,10 +12,14 @@ const DEAL_PATTERN := [1, 2, 3, 4]
 
 var placed_cards: Array = []
 var p0_card_nodes: Array = []
+var name_labels: Array = []
+var score_labels: Array = []
 var player_card_counts: Array = [0, 0, 0, 0, 0]
 var dealer_index: int = 0
 var hands: Array = []
 var kitty: Array = []
+
+const PLAYER_NAMES := ["나", "준규", "지훈", "한별", "민욱"]
 
 
 func _ready() -> void:
@@ -265,6 +269,77 @@ func _sort_and_rearrange_p0() -> void:
 	for entry in p0_card_nodes:
 		if entry.has("used"):
 			entry.erase("used")
+
+	tween.set_parallel(false)
+	tween.tween_interval(0.3)
+	tween.tween_callback(_show_player_names)
+
+
+func _create_label(text: String, font_size: int, color: Color = Color.WHITE) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", color)
+	return label
+
+
+func _show_player_names() -> void:
+	for label in name_labels:
+		if is_instance_valid(label):
+			label.queue_free()
+	name_labels.clear()
+	for label in score_labels:
+		if is_instance_valid(label):
+			label.queue_free()
+	score_labels.clear()
+
+	var vp: Vector2 = get_viewport_rect().size
+	var cs: Vector2 = CardUtilScript.get_card_size(get_viewport())
+	var my_cs: Vector2 = CardUtilScript.get_my_card_size(get_viewport())
+	var font_size: int = int(vp.y / 35.0)
+	var small_font: int = int(vp.y / 45.0)
+
+	for p in range(5):
+		var origin: Vector2 = CardUtilScript.get_hand_origin(get_viewport(), p)
+		var name_label: Label = _create_label(PLAYER_NAMES[p], font_size)
+		var score_label: Label = _create_label("0점", small_font, Color(1.0, 0.9, 0.5))
+
+		add_child(name_label)
+		add_child(score_label)
+
+		var name_pos: Vector2
+		var score_pos: Vector2
+
+		match p:
+			0:
+				var hand_right: float = origin.x + CardUtilScript._my_hand_width(my_cs, 10)
+				name_pos = Vector2(hand_right + 10, origin.y)
+				score_pos = Vector2(hand_right + 10, origin.y + font_size + 4)
+			1:
+				var card_right: float = origin.x + cs.x
+				var card_mid_y: float = origin.y + cs.y * CardUtilScript.CARD_OVERLAP_V * 9 * 0.5
+				name_pos = Vector2(card_right + 5, card_mid_y)
+				score_pos = Vector2(card_right + 5, card_mid_y + font_size + 4)
+			2:
+				var card_bottom: float = cs.y * 0.5
+				name_pos = Vector2(origin.x, card_bottom + 5)
+				score_pos = Vector2(origin.x + font_size * 2 + 10, card_bottom + 5)
+			3:
+				var hand_w: float = CardUtilScript._hand_width(cs, 10)
+				var card_bottom: float = cs.y * 0.5
+				var mid_x: float = origin.x + hand_w * 0.5
+				name_pos = Vector2(mid_x, card_bottom + 5)
+				score_pos = Vector2(mid_x + font_size * 2 + 10, card_bottom + 5)
+			4:
+				var card_left: float = origin.x
+				var card_mid_y: float = origin.y + cs.y * CardUtilScript.CARD_OVERLAP_V * 9 * 0.5
+				name_pos = Vector2(card_left - font_size * 2 - 10, card_mid_y)
+				score_pos = Vector2(card_left - font_size * 2 - 10, card_mid_y + font_size + 4)
+
+		name_label.position = name_pos
+		score_label.position = score_pos
+		name_labels.append(name_label)
+		score_labels.append(score_label)
 
 
 func _cards_equal(a, b) -> bool:
