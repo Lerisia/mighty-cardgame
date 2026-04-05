@@ -11,6 +11,7 @@ const DEAL_FLY_DURATION := 0.22
 const DEAL_PATTERN := [1, 2, 3, 4]
 
 var placed_cards: Array = []
+var p0_card_nodes: Array = []
 var player_card_counts: Array = [0, 0, 0, 0, 0]
 var dealer_index: int = 0
 var hands: Array = []
@@ -26,13 +27,23 @@ func _ready() -> void:
 	_play_shuffle_animation()
 
 
+const CARD_CORNER_RADIUS := 4.0
+
+
+func _create_border(card_size: Vector2) -> Panel:
+	var panel := Panel.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = CARD_BORDER_COLOR
+	style.set_corner_radius_all(int(CARD_CORNER_RADIUS + CARD_BORDER))
+	panel.add_theme_stylebox_override("panel", style)
+	panel.position = Vector2(-CARD_BORDER, -CARD_BORDER)
+	panel.size = card_size + Vector2(CARD_BORDER * 2, CARD_BORDER * 2)
+	return panel
+
+
 func _create_card_back(card_size: Vector2) -> Control:
 	var container := Control.new()
-	var border := ColorRect.new()
-	border.color = CARD_BORDER_COLOR
-	border.position = Vector2(-CARD_BORDER, -CARD_BORDER)
-	border.size = card_size + Vector2(CARD_BORDER * 2, CARD_BORDER * 2)
-	container.add_child(border)
+	container.add_child(_create_border(card_size))
 	var tex := TextureRect.new()
 	tex.texture = CardTextureScript.get_back_texture()
 	tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -42,11 +53,7 @@ func _create_card_back(card_size: Vector2) -> Control:
 
 func _create_card_front(card_size: Vector2, card) -> Control:
 	var container := Control.new()
-	var border := ColorRect.new()
-	border.color = CARD_BORDER_COLOR
-	border.position = Vector2(-CARD_BORDER, -CARD_BORDER)
-	border.size = card_size + Vector2(CARD_BORDER * 2, CARD_BORDER * 2)
-	container.add_child(border)
+	container.add_child(_create_border(card_size))
 	var tex := TextureRect.new()
 	tex.texture = CardTextureScript.get_texture(card)
 	tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -139,6 +146,7 @@ func _play_deal_animation() -> void:
 					var card: Control
 					if is_p0:
 						card = _create_card_front(card_size, hands[0][p0_idx])
+						p0_card_nodes.append({"node": card, "card_data": hands[0][p0_idx]})
 					else:
 						card = _create_card_back(card_size)
 					_add_card(card, card_size, deck_pos)
@@ -181,29 +189,36 @@ func _sort_hand(hand: Array) -> Array:
 
 
 func _sort_and_rearrange_p0() -> void:
-	hands[0] = _sort_hand(hands[0])
+	var sorted_hand: Array = _sort_hand(hands[0])
 	var card_size: Vector2 = CardUtilScript.get_card_size(get_viewport())
+	var total: int = sorted_hand.size()
 
-	for card in placed_cards:
-		if is_instance_valid(card):
-			card.queue_free()
-	placed_cards.clear()
+	var sorted_nodes: Array = []
+	for sorted_card in sorted_hand:
+		for entry in p0_card_nodes:
+			if not entry.has("used") and _cards_equal(entry["card_data"], sorted_card):
+				sorted_nodes.append(entry["node"])
+				entry["used"] = true
+				break
 
-	for p in range(1, 5):
-		for i in range(10):
-			var card: Control = _create_card_back(card_size)
-			var pos: Vector2 = CardUtilScript.get_card_position(get_viewport(), p, i, 10)
-			_add_card(card, card_size, pos)
+	var tween: Tween = create_tween().set_parallel(true)
+	for i in range(sorted_nodes.size()):
+		var target_pos: Vector2 = CardUtilScript.get_card_position(get_viewport(), 0, i, total)
+		var node: Control = sorted_nodes[i]
+		if is_instance_valid(node):
+			node.z_index = i
+			tween.tween_property(node, "position", target_pos, 0.3).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
 
-	for i in range(hands[0].size()):
-		var card: Control = _create_card_front(card_size, hands[0][i])
-		var pos: Vector2 = CardUtilScript.get_card_position(get_viewport(), 0, i, hands[0].size())
-		_add_card(card, card_size, pos)
+	hands[0] = sorted_hand
 
-	var center: Vector2 = CardUtilScript.get_center(get_viewport())
-	var half_card: Vector2 = card_size / 2.0
-	var deck_pos: Vector2 = center - half_card
-	for k in range(3):
-		var kitty_card: Control = _create_card_back(card_size)
-		var kitty_offset: Vector2 = Vector2(k * 3, k * 2)
-		_add_card(kitty_card, card_size, deck_pos + kitty_offset)
+	for entry in p0_card_nodes:
+		if entry.has("used"):
+			entry.erase("used")
+
+
+func _cards_equal(a, b) -> bool:
+	if a.is_joker and b.is_joker:
+		return true
+	if a.is_joker or b.is_joker:
+		return false
+	return a.suit == b.suit and a.rank == b.rank
