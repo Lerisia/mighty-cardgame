@@ -466,6 +466,7 @@ func _start_declarer_phase() -> void:
 
 	var msg := "%s의 당선을 축하합니다!\n공약: %s %d\n\n나머지 4인은 %s의 독재 타도를 위해 뭉쳤다!\n그러나 4인 중 한 명은 %s의 숨겨진 심복이다..." % [dname, SUIT_DISPLAY.get(giruda, "?"), bid, dname, dname]
 	_show_crown(declarer)
+	_play_sfx(_sfx_elected)
 	await _show_announcement_stay(msg)
 	await get_tree().create_timer(1.0).timeout
 
@@ -541,40 +542,26 @@ func _bot_declarer_phase(declarer: int, giruda: int, bid: int) -> void:
 	friend_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(friend_title)
 
-	if friend_card and not friend_card.is_joker:
+	if friend_card:
 		var card_size: Vector2 = CardUtilScript.get_card_size(get_viewport())
 		var card_img := TextureRect.new()
 		card_img.texture = CardTextureScript.get_texture(friend_card)
 		card_img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		card_img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		var img_container := CenterContainer.new()
-		img_container.add_child(card_img)
-		vbox.add_child(img_container)
-		panel.add_child(vbox)
-		add_child(panel)
-		await get_tree().process_frame
-		card_img.size = card_size
-	elif friend_card and friend_card.is_joker:
-		var card_size: Vector2 = CardUtilScript.get_card_size(get_viewport())
-		var card_img := TextureRect.new()
-		card_img.texture = CardTextureScript.get_texture(friend_card)
-		card_img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		var img_container := CenterContainer.new()
-		img_container.add_child(card_img)
-		vbox.add_child(img_container)
-		panel.add_child(vbox)
-		add_child(panel)
-		await get_tree().process_frame
-		card_img.size = card_size
-	else:
-		panel.add_child(vbox)
-		add_child(panel)
-		await get_tree().process_frame
+		card_img.custom_minimum_size = card_size
+		card_img.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		vbox.add_child(card_img)
 
 	var friend_label: Label = _create_label(friend_text, font_size, Color.YELLOW)
 	friend_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(friend_label)
 
+	panel.add_child(vbox)
+	add_child(panel)
+	await get_tree().process_frame
+	if friend_card:
+		var card_img = vbox.get_child(3) if friend_card else null
+		if card_img and card_img is TextureRect:
+			card_img.size = CardUtilScript.get_card_size(get_viewport())
 	await get_tree().process_frame
 	panel.position = get_viewport_rect().size / 2.0 - panel.size / 2.0
 
@@ -951,6 +938,7 @@ var _sfx_play: AudioStream = preload("res://assets/sounds/playcard.wav")
 var _sfx_sort: AudioStream = preload("res://assets/sounds/card-fan-1.ogg")
 var _sfx_bid: AudioStream = preload("res://assets/sounds/bid.wav")
 var _sfx_pass: AudioStream = preload("res://assets/sounds/pass.wav")
+var _sfx_elected: AudioStream = preload("res://assets/sounds/elected.wav")
 
 
 func _play_sfx(stream: AudioStream) -> void:
