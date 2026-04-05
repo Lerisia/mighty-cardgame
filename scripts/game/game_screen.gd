@@ -3,8 +3,9 @@ extends Control
 const CardUtilScript = preload("res://scripts/ui/card_util.gd")
 const CardTextureScript = preload("res://scripts/ui/card_texture.gd")
 const DeckScript = preload("res://scripts/game_logic/deck.gd")
+const CardScript = preload("res://scripts/game_logic/card.gd")
 
-const CARD_BORDER := 2.0
+const CARD_BORDER := 1.0
 const CARD_BORDER_COLOR := Color(0.15, 0.15, 0.15, 1.0)
 const DEAL_FLY_DURATION := 0.22
 const DEAL_PATTERN := [1, 2, 3, 4]
@@ -155,3 +156,54 @@ func _play_deal_animation() -> void:
 	tween.tween_callback(func():
 		deck_card.queue_free()
 	)
+	tween.tween_interval(0.3)
+	tween.tween_callback(_sort_and_rearrange_p0)
+
+
+func _sort_hand(hand: Array) -> Array:
+	const SUIT_ORDER := {
+		CardScript.Suit.SPADE: 0,
+		CardScript.Suit.DIAMOND: 1,
+		CardScript.Suit.HEART: 2,
+		CardScript.Suit.CLUB: 3,
+	}
+	var sorted: Array = hand.duplicate()
+	sorted.sort_custom(func(a, b):
+		if a.is_joker:
+			return true
+		if b.is_joker:
+			return false
+		if SUIT_ORDER[a.suit] != SUIT_ORDER[b.suit]:
+			return SUIT_ORDER[a.suit] < SUIT_ORDER[b.suit]
+		return a.rank > b.rank
+	)
+	return sorted
+
+
+func _sort_and_rearrange_p0() -> void:
+	hands[0] = _sort_hand(hands[0])
+	var card_size: Vector2 = CardUtilScript.get_card_size(get_viewport())
+
+	for card in placed_cards:
+		if is_instance_valid(card):
+			card.queue_free()
+	placed_cards.clear()
+
+	for p in range(1, 5):
+		for i in range(10):
+			var card: Control = _create_card_back(card_size)
+			var pos: Vector2 = CardUtilScript.get_card_position(get_viewport(), p, i, 10)
+			_add_card(card, card_size, pos)
+
+	for i in range(hands[0].size()):
+		var card: Control = _create_card_front(card_size, hands[0][i])
+		var pos: Vector2 = CardUtilScript.get_card_position(get_viewport(), 0, i, hands[0].size())
+		_add_card(card, card_size, pos)
+
+	var center: Vector2 = CardUtilScript.get_center(get_viewport())
+	var half_card: Vector2 = card_size / 2.0
+	var deck_pos: Vector2 = center - half_card
+	for k in range(3):
+		var kitty_card: Control = _create_card_back(card_size)
+		var kitty_offset: Vector2 = Vector2(k * 3, k * 2)
+		_add_card(kitty_card, card_size, deck_pos + kitty_offset)
