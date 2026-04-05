@@ -82,10 +82,35 @@ func finalize(to_discard: Array, friend_call: Dictionary) -> bool:
 	friend_call_type = call_type
 	if friend_call_type == FriendCallType.CARD:
 		friend_call_card = friend_call["card"]
+		if not options.allow_fake_friend:
+			if _is_fake_friend(friend_call_card):
+				hand.append_array(discarded)
+				discarded = []
+				friend_call_type = -1
+				friend_call_card = null
+				return false
 	elif friend_call_type == FriendCallType.PLAYER:
 		friend_call_player = friend_call["player_index"]
 	is_finished = true
 	return true
+
+
+func _is_fake_friend(card) -> bool:
+	for c in hand:
+		if _card_matches(c, card):
+			return true
+	for c in discarded:
+		if _card_matches(c, card):
+			return true
+	return false
+
+
+static func _card_matches(a, b) -> bool:
+	if a.is_joker and b.is_joker:
+		return true
+	if not a.is_joker and not b.is_joker:
+		return a.suit == b.suit and a.rank == b.rank
+	return false
 
 
 func _is_valid_change(new_giruda: int, new_bid: int, raise_amount: int) -> bool:

@@ -212,6 +212,59 @@ func test_allow_player_friend_default() -> void:
 	var friend_call := {"type": DeclarerPhaseScript.FriendCallType.PLAYER, "player_index": 3}
 	assert_bool(phase.finalize(to_discard, friend_call)).is_true()
 
+
+# --- Fake friend restriction ---
+
+func test_fake_friend_allowed_by_default() -> void:
+	var opts = GameOptionsScript.new()
+	var phase = _make_phase_with_options(13, BiddingStateScript.Giruda.SPADE, opts)
+	phase.skip_first_change()
+	phase.reveal_kitty()
+	# Call a card that is in own hand as friend
+	var friend_card = phase.hand[3]
+	var to_discard := [phase.hand[0], phase.hand[1], phase.hand[2]]
+	var friend_call := {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": friend_card}
+	assert_bool(phase.finalize(to_discard, friend_call)).is_true()
+
+
+func test_fake_friend_own_hand_rejected() -> void:
+	var opts = GameOptionsScript.new()
+	opts.allow_fake_friend = false
+	var phase = _make_phase_with_options(13, BiddingStateScript.Giruda.SPADE, opts)
+	phase.skip_first_change()
+	phase.reveal_kitty()
+	# Call a card that remains in own hand after discard
+	var friend_card = phase.hand[5]
+	var to_discard := [phase.hand[0], phase.hand[1], phase.hand[2]]
+	var friend_call := {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": friend_card}
+	assert_bool(phase.finalize(to_discard, friend_call)).is_false()
+
+
+func test_fake_friend_discarded_card_rejected() -> void:
+	var opts = GameOptionsScript.new()
+	opts.allow_fake_friend = false
+	var phase = _make_phase_with_options(13, BiddingStateScript.Giruda.SPADE, opts)
+	phase.skip_first_change()
+	phase.reveal_kitty()
+	# Call a card that is being discarded
+	var friend_card = phase.hand[0]
+	var to_discard := [phase.hand[0], phase.hand[1], phase.hand[2]]
+	var friend_call := {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": friend_card}
+	assert_bool(phase.finalize(to_discard, friend_call)).is_false()
+
+
+func test_fake_friend_other_card_allowed() -> void:
+	var opts = GameOptionsScript.new()
+	opts.allow_fake_friend = false
+	var phase = _make_phase_with_options(13, BiddingStateScript.Giruda.SPADE, opts)
+	phase.skip_first_change()
+	phase.reveal_kitty()
+	# Call a card NOT in hand or discard
+	var friend_card = CardScript.new(CardScript.Suit.SPADE, CardScript.Rank.ACE)
+	var to_discard := [phase.hand[0], phase.hand[1], phase.hand[2]]
+	var friend_call := {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": friend_card}
+	assert_bool(phase.finalize(to_discard, friend_call)).is_true()
+
 func test_finalize_requires_kitty_revealed() -> void:
 	var phase = _make_phase()
 	phase.skip_first_change()
