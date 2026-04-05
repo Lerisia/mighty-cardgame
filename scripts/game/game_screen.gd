@@ -41,7 +41,7 @@ func _ready() -> void:
 
 
 func _start_round() -> void:
-	round_manager = RoundManagerScript.new(players, dealer, 13)
+	round_manager = RoundManagerScript.new(players, dealer, OptionsManager.options.min_bid, OptionsManager.options)
 	round_manager.do_deal()
 	state = State.BIDDING
 	_update_display()
@@ -51,6 +51,8 @@ func _start_round() -> void:
 
 func _on_step() -> void:
 	match state:
+		State.IDLE:
+			_step_idle()
 		State.BIDDING:
 			_step_bidding()
 		State.DECLARER:
@@ -138,8 +140,16 @@ func _step_scoring() -> void:
 	for i in range(5):
 		score_text += "P%d=%d " % [i, players[i].score]
 	_set_status(score_text)
-	state = State.IDLE
 	_update_display()
+	dealer = (dealer + 1) % 5
+	$StepTimer.wait_time = 2.0
+	state = State.IDLE
+	$StepTimer.start()
+
+
+func _step_idle() -> void:
+	$StepTimer.wait_time = 0.8
+	_start_round()
 
 
 func _update_display() -> void:
