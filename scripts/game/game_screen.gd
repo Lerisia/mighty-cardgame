@@ -385,42 +385,52 @@ func _end_bidding() -> void:
 	_start_declarer_phase()
 
 
-func _show_announcement(text: String, duration: float) -> void:
+var _announcement_panel: PanelContainer = null
+
+
+func _show_announcement_stay(text: String) -> void:
+	_hide_announcement()
 	var vh: float = get_viewport_rect().size.y
 	var font_size: int = int(vh / 18.0)
 
-	var panel := PanelContainer.new()
+	_announcement_panel = PanelContainer.new()
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0, 0, 0, 0.7)
 	style.set_corner_radius_all(10)
 	style.set_content_margin_all(16)
-	panel.add_theme_stylebox_override("panel", style)
-	panel.z_index = 110
+	_announcement_panel.add_theme_stylebox_override("panel", style)
+	_announcement_panel.z_index = 110
 
 	var label: Label = _create_label(text, font_size, Color.WHITE)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	panel.add_child(label)
+	_announcement_panel.add_child(label)
 
-	add_child(panel)
+	add_child(_announcement_panel)
 	await get_tree().process_frame
-	panel.position = get_viewport_rect().size / 2.0 - panel.size / 2.0
+	_announcement_panel.position = get_viewport_rect().size / 2.0 - _announcement_panel.size / 2.0
 
-	await get_tree().create_timer(duration).timeout
-	panel.queue_free()
+
+func _hide_announcement() -> void:
+	if _announcement_panel and is_instance_valid(_announcement_panel):
+		_announcement_panel.queue_free()
+		_announcement_panel = null
 
 
 func _start_declarer_phase() -> void:
 	var declarer: int = bidding_manager.get_declarer()
 	var giruda: int = bidding_manager.states[declarer].bid_giruda
 	var bid: int = bidding_manager.states[declarer].bid_count
-	var name: String = PLAYER_NAMES[declarer]
+	var dname: String = PLAYER_NAMES[declarer]
 
-	var msg := "%s의 당선을 축하합니다!\n공약: %s %d\n\n나머지 4인은 %s의 독재 타도를 위해 뭉쳤다!\n그러나 4인 중 한 명은 %s의 숨겨진 심복이다..." % [name, SUIT_DISPLAY.get(giruda, "?"), bid, name, name]
-	await _show_announcement(msg, 3.5)
+	var msg := "%s의 당선을 축하합니다!\n공약: %s %d\n\n나머지 4인은 %s의 독재 타도를 위해 뭉쳤다!\n그러나 4인 중 한 명은 %s의 숨겨진 심복이다..." % [dname, SUIT_DISPLAY.get(giruda, "?"), bid, dname, dname]
+	await _show_announcement_stay(msg)
+	await get_tree().create_timer(1.0).timeout
 
 	_resort_hand_with_giruda(giruda)
 	await get_tree().create_timer(0.5).timeout
-	_move_kitty_to_declarer(declarer)
+	await _move_kitty_to_declarer(declarer)
+	await get_tree().create_timer(0.5).timeout
+	_hide_announcement()
 
 
 func _resort_hand_with_giruda(giruda: int) -> void:
@@ -459,7 +469,6 @@ func _resort_hand_with_giruda(giruda: int) -> void:
 				entry["used"] = true
 				break
 
-	_play_sfx(_sfx_sort)
 	var tween: Tween = create_tween().set_parallel(true)
 	for i in range(sorted_nodes.size()):
 		var target_pos: Vector2 = CardUtilScript.get_card_position(get_viewport(), 0, i, sorted_hand.size())
@@ -490,25 +499,66 @@ func _move_kitty_to_declarer(declarer: int) -> void:
 		await tween.finished
 	else:
 		hands[0].append_array(kitty)
-		_resort_hand_with_giruda(bidding_manager.states[0].bid_giruda)
-		await get_tree().create_timer(0.5).timeout
+		var giruda: int = bidding_manager.states[0].bid_giruda
 
-		var total: int = hands[0].size()
+		var giruda_suit: int = -1
+		match giruda:
+			BiddingStateScript.Giruda.SPADE: giruda_suit = CardScript.Suit.SPADE
+			BiddingStateScript.Giruda.DIAMOND: giruda_suit = CardScript.Suit.DIAMOND
+			BiddingStateScript.Giruda.HEART: giruda_suit = CardScript.Suit.HEART
+			BiddingStateScript.Giruda.CLUB: giruda_suit = CardScript.Suit.CLUB
+
+		const SUIT_BASE := {
+			CardScript.Suit.SPADE: 0,
+			CardScript.Suit.DIAMOND: 1,
+			CardScript.Suit.HEART: 2,
+			CardScript.Suit.CLUB: 3,
+		}
+		var sorted_13: Array = hands[0].duplicate()
+		sorted_13.sort_custom(func(a, b):
+			if a.is_joker: return true
+			if b.is_joker: return false
+			var ao: int = 0 if a.suit == giruda_suit else SUIT_BASE[a.suit] + 10
+			var bo: int = 0 if b.suit == giruda_suit else SUIT_BASE[b.suit] + 10
+			if ao != bo: return ao < bo
+			return a.rank > b.rank
+		)
+		hands[0] = sorted_13
+
+		var existing_tween: Tween = create_tween().set_parallel(true)
+		for entry in p0_card_nodes:
+			var card_data = entry["card_data"]
+			var node: Control = entry["node"]
+			if not is_instance_valid(node):
+				continue
+			var idx: int = -1
+			for j in range(13):
+				if _cards_equal(sorted_13[j], card_data):
+					idx = j
+					break
+			if idx >= 0:
+				var pos: Vector2 = CardUtilScript.get_card_position(get_viewport(), 0, idx, 13)
+				node.z_index = idx
+				existing_tween.tween_property(node, "position", pos, 0.3).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
+
+		await existing_tween.finished
+		await get_tree().create_timer(0.3).timeout
+
 		var center: Vector2 = CardUtilScript.get_center(get_viewport())
 		var half_card: Vector2 = my_card_size / 2.0
+		var kitty_tween: Tween = create_tween()
 
-		var tween: Tween = create_tween()
 		for i in range(3):
 			var kitty_card = kitty[i]
 			var sorted_idx: int = -1
-			for j in range(total):
-				if _cards_equal(hands[0][j], kitty_card):
+			for j in range(13):
+				if _cards_equal(sorted_13[j], kitty_card):
 					sorted_idx = j
 					break
-			var target_pos: Vector2 = CardUtilScript.get_card_position(get_viewport(), 0, sorted_idx, total)
+			var target_pos: Vector2 = CardUtilScript.get_card_position(get_viewport(), 0, sorted_idx, 13)
 			var raised_pos: Vector2 = target_pos + Vector2(0, -my_card_size.y * 0.15)
 
-			tween.tween_callback(func():
+			kitty_tween.tween_callback(func():
 				var card_node: Control = _create_card_front(my_card_size, kitty_card)
 				_add_card(card_node, my_card_size, center - half_card)
 				p0_card_nodes.append({"node": card_node, "card_data": kitty_card})
@@ -517,8 +567,8 @@ func _move_kitty_to_declarer(declarer: int) -> void:
 				card_node.z_index = sorted_idx
 				_play_sfx(_sfx_deal)
 			)
-			tween.tween_interval(0.4)
-		await tween.finished
+			kitty_tween.tween_interval(0.4)
+		await kitty_tween.finished
 
 
 const CARD_CORNER_RADIUS := 4.0
