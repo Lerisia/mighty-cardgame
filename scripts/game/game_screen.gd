@@ -285,7 +285,7 @@ var _bold_font: Font = null
 var _sfx_shuffle: AudioStream = preload("res://assets/sounds/shuffle.wav")
 var _sfx_deal: AudioStream = preload("res://assets/sounds/draw.wav")
 var _sfx_play: AudioStream = preload("res://assets/sounds/playcard.wav")
-var _sfx_sort: AudioStream = preload("res://assets/sounds/tap.wav")
+var _sfx_sort: AudioStream = preload("res://assets/sounds/card-fan-1.ogg")
 
 
 func _play_sfx(stream: AudioStream) -> void:
