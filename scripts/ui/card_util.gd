@@ -55,7 +55,8 @@ static func get_card_position(viewport: Viewport, player_index: int, card_index:
 		return origin + Vector2(0, card_index * step)
 	elif player_index == 0:
 		var my_cs: Vector2 = get_my_card_size(viewport)
-		var step: float = my_cs.x * MY_CARD_OVERLAP_H
+		var fixed_width: float = _my_hand_width(my_cs, 10)
+		var step: float = (fixed_width - my_cs.x) / maxi(total_cards - 1, 1)
 		return origin + Vector2(card_index * step, 0)
 	else:
 		var step: float = cs.x * CARD_OVERLAP_H
