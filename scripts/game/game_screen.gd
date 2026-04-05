@@ -24,7 +24,22 @@ func _ready() -> void:
 	var result: Dictionary = deck.deal(5)
 	hands = result["hands"]
 	kitty = result["kitty"]
+	$TopButtons/ExitButton.pressed.connect(_on_exit_pressed)
+	$ExitConfirmPopup/VBox/Buttons/ConfirmExit.pressed.connect(_on_confirm_exit)
+	$ExitConfirmPopup/VBox/Buttons/CancelExit.pressed.connect(_on_cancel_exit)
 	_play_shuffle_animation()
+
+
+func _on_exit_pressed() -> void:
+	$ExitConfirmPopup.popup_centered()
+
+
+func _on_confirm_exit() -> void:
+	get_tree().change_scene_to_file("res://scenes/ui/main_menu.tscn")
+
+
+func _on_cancel_exit() -> void:
+	$ExitConfirmPopup.hide()
 
 
 const CARD_CORNER_RADIUS := 4.0

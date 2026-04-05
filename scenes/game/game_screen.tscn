@@ -15,3 +15,60 @@ anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 color = Color(0.15, 0.45, 0.2, 1)
+
+[node name="TopButtons" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -80.0
+offset_top = 5.0
+offset_right = 80.0
+offset_bottom = 40.0
+grow_horizontal = 2
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="ExitButton" type="Button" parent="TopButtons"]
+layout_mode = 2
+custom_minimum_size = Vector2(75, 30)
+text = "나가기"
+
+[node name="StatsButton" type="Button" parent="TopButtons"]
+layout_mode = 2
+custom_minimum_size = Vector2(75, 30)
+disabled = true
+text = "통계"
+
+[node name="ExitConfirmPopup" type="PopupPanel" parent="."]
+size = Vector2i(300, 150)
+exclusive = true
+
+[node name="VBox" type="VBoxContainer" parent="ExitConfirmPopup"]
+offset_left = 10.0
+offset_top = 10.0
+offset_right = 290.0
+offset_bottom = 140.0
+theme_override_constants/separation = 15
+alignment = 1
+
+[node name="Message" type="Label" parent="ExitConfirmPopup/VBox"]
+layout_mode = 2
+text = "정말 나가시겠습니까?
+현재 게임은 저장되지 않습니다."
+horizontal_alignment = 1
+
+[node name="Buttons" type="HBoxContainer" parent="ExitConfirmPopup/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 20
+alignment = 1
+
+[node name="ConfirmExit" type="Button" parent="ExitConfirmPopup/VBox/Buttons"]
+layout_mode = 2
+custom_minimum_size = Vector2(80, 35)
+text = "나가기"
+
+[node name="CancelExit" type="Button" parent="ExitConfirmPopup/VBox/Buttons"]
+layout_mode = 2
+custom_minimum_size = Vector2(80, 35)
+text = "취소"
