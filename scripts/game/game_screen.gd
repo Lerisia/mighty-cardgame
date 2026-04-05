@@ -27,7 +27,39 @@ func _ready() -> void:
 	$TopButtons/ExitButton.pressed.connect(_on_exit_pressed)
 	$ExitConfirmPopup/VBox/Buttons/ConfirmExit.pressed.connect(_on_confirm_exit)
 	$ExitConfirmPopup/VBox/Buttons/CancelExit.pressed.connect(_on_cancel_exit)
+	_style_top_buttons()
 	_play_shuffle_animation()
+
+
+func _style_top_buttons() -> void:
+	var vh: float = get_viewport_rect().size.y
+	var btn_font_size: int = int(vh / 30.0)
+
+	var exit_style := StyleBoxFlat.new()
+	exit_style.bg_color = Color(0.7, 0.15, 0.15)
+	exit_style.set_corner_radius_all(6)
+	exit_style.set_content_margin_all(8)
+	$TopButtons/ExitButton.add_theme_stylebox_override("normal", exit_style)
+	var exit_hover := StyleBoxFlat.new()
+	exit_hover.bg_color = Color(0.85, 0.2, 0.2)
+	exit_hover.set_corner_radius_all(6)
+	exit_hover.set_content_margin_all(8)
+	$TopButtons/ExitButton.add_theme_stylebox_override("hover", exit_hover)
+	$TopButtons/ExitButton.add_theme_font_size_override("font_size", btn_font_size)
+	$TopButtons/ExitButton.add_theme_color_override("font_color", Color.WHITE)
+
+	var stats_style := StyleBoxFlat.new()
+	stats_style.bg_color = Color(0.15, 0.2, 0.5)
+	stats_style.set_corner_radius_all(6)
+	stats_style.set_content_margin_all(8)
+	$TopButtons/StatsButton.add_theme_stylebox_override("normal", stats_style)
+	var stats_disabled := StyleBoxFlat.new()
+	stats_disabled.bg_color = Color(0.2, 0.25, 0.4, 0.6)
+	stats_disabled.set_corner_radius_all(6)
+	stats_disabled.set_content_margin_all(8)
+	$TopButtons/StatsButton.add_theme_stylebox_override("disabled", stats_disabled)
+	$TopButtons/StatsButton.add_theme_font_size_override("font_size", btn_font_size)
+	$TopButtons/StatsButton.add_theme_color_override("font_color", Color.WHITE)
 
 
 func _on_exit_pressed() -> void:
