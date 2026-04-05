@@ -5,7 +5,7 @@ const CardTextureScript = preload("res://scripts/ui/card_texture.gd")
 
 const CARD_BORDER := 2.0
 const CARD_BORDER_COLOR := Color(0.15, 0.15, 0.15, 1.0)
-const DEAL_FLY_DURATION := 0.15
+const DEAL_FLY_DURATION := 0.3
 const DEAL_PATTERN := [1, 2, 3, 4]
 
 var placed_cards: Array = []
@@ -87,6 +87,13 @@ func _play_deal_animation() -> void:
 	var half_card: Vector2 = card_size / 2.0
 	var deck_pos: Vector2 = center - half_card
 
+	var kitty_cards: Array = []
+	for k in range(3):
+		var kitty: Control = _create_card_back(card_size)
+		var kitty_offset: Vector2 = Vector2(k * 3, k * 2)
+		_add_card(kitty, card_size, deck_pos + kitty_offset)
+		kitty_cards.append(kitty)
+
 	var deck_card: Control = _create_card_back(card_size)
 	_add_card(deck_card, card_size, deck_pos)
 
@@ -111,10 +118,11 @@ func _play_deal_animation() -> void:
 				)
 				player_card_counts[target_player] += 1
 
-			tween.tween_interval(DEAL_FLY_DURATION + 0.05)
+			tween.tween_interval(DEAL_FLY_DURATION + 0.1)
 
 		deal_round_index += 1
 
 	tween.tween_callback(func():
 		deck_card.queue_free()
 	)
+	# kitty_cards remain on table as the 3 leftover cards
