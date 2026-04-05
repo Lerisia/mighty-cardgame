@@ -4,6 +4,7 @@
 
 config/name="Mighty Card Game"
 config/features=PackedStringArray("4.4")
+run/main_scene="res://scenes/ui/main_menu.tscn"
 
 [display]
 
