@@ -40,10 +40,6 @@ static func select_follow(hand: Array, lead_suit: int, giruda: int, joker_called
 static func select_2ma(hand: Array, shown_card, hidden_card) -> int:
 	var show_num: int = shown_card.rank
 	var hide_num: int = hidden_card.rank
-	if shown_card.rank == CardScript.Rank.ACE:
-		show_num += 13
-	if hidden_card.rank == CardScript.Rank.ACE:
-		hide_num += 13
 
 	for i in range(hand.size()):
 		var c = hand[i]

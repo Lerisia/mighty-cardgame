@@ -20,9 +20,6 @@ func do_bidding_turn(bidding_manager) -> void:
 
 	var hand: Array = bidding_manager.hands[player_index]
 
-	if bidding_manager.can_deal_miss(player_index):
-		pass
-
 	var result: Dictionary = strategy.decide_bid(
 		hand,
 		bidding_manager.minimum_bid,

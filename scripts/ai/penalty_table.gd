@@ -43,9 +43,8 @@ static func card_usage_penalty(card, giruda: int, used_cards: Array = [{}, {}, {
 			return USE_EFFECTIVE_JOKERCALL
 
 	var power_num: int = _get_power_num(card)
-	var n_number: int = power_num - 1
 	var suit_idx: int = card.suit
-	var order: int = _count_higher_used(suit_idx, n_number, card.is_point_card, used_cards)
+	var order: int = _count_higher_used(suit_idx, power_num, card.is_point_card, used_cards)
 
 	if _is_giruda_suit(card, giruda):
 		if card.is_point_card:
