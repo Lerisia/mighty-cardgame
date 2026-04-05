@@ -5,7 +5,7 @@ const CardTextureScript = preload("res://scripts/ui/card_texture.gd")
 
 const CARD_BORDER := 2.0
 const CARD_BORDER_COLOR := Color(0.15, 0.15, 0.15, 1.0)
-const DEAL_FLY_DURATION := 0.3
+const DEAL_FLY_DURATION := 0.22
 const DEAL_PATTERN := [1, 2, 3, 4]
 
 var placed_cards: Array = []
@@ -118,7 +118,7 @@ func _play_deal_animation() -> void:
 				)
 				player_card_counts[target_player] += 1
 
-			tween.tween_interval(DEAL_FLY_DURATION + 0.1)
+			tween.tween_interval(DEAL_FLY_DURATION + 0.07)
 
 		deal_round_index += 1
 
