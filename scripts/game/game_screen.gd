@@ -12,7 +12,7 @@ func _create_card_back(card_size: Vector2) -> TextureRect:
 	var tex := TextureRect.new()
 	tex.texture = CardTextureScript.get_back_texture()
 	tex.size = card_size
-	tex.stretch_mode = TextureRect.STRETCH_SCALE
+	tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	return tex
 
 
