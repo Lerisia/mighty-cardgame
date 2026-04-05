@@ -140,7 +140,7 @@ func _style_bid_panel() -> void:
 
 	$BidPanel/VBox/TopRow/BidDisplay.add_theme_font_size_override("font_size", big_font)
 	$BidPanel/VBox/TopRow/BidDisplay.add_theme_font_override("font", _get_bold_font())
-	$BidPanel/VBox/TopRow/BidDisplay.custom_minimum_size.x = big_font * 5
+	$BidPanel/VBox/TopRow/BidDisplay.custom_minimum_size.x = big_font * 6
 	$ElectionPanel/ElectionLabel.add_theme_font_size_override("font_size", label_font)
 	$ElectionPanel/ElectionLabel.add_theme_font_override("font", _get_bold_font())
 	$ElectionPanel/ElectionLabel.add_theme_color_override("font_color", Color.WHITE)
@@ -159,7 +159,31 @@ func _update_bid_display() -> void:
 	_update_suit_highlight()
 
 
+func _ensure_gold_borders() -> void:
+	var suit_names := ["Spade", "Diamond", "Heart", "Club", "NoGiruda"]
+	var grid = $BidPanel/VBox/TopRow/SuitGrid
+	for suit_name in suit_names:
+		var btn = grid.get_node_or_null(suit_name)
+		if btn == null:
+			continue
+		if btn.get_node_or_null("GoldBorder") != null:
+			continue
+		var border := Panel.new()
+		border.name = "GoldBorder"
+		var style := StyleBoxFlat.new()
+		style.bg_color = Color(0, 0, 0, 0)
+		style.border_color = Color(1.0, 0.8, 0.2)
+		style.set_border_width_all(3)
+		style.set_corner_radius_all(4)
+		border.add_theme_stylebox_override("panel", style)
+		border.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		border.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		border.visible = false
+		btn.add_child(border)
+
+
 func _update_suit_highlight() -> void:
+	_ensure_gold_borders()
 	var suit_map := {
 		BiddingStateScript.Giruda.SPADE: "Spade",
 		BiddingStateScript.Giruda.DIAMOND: "Diamond",
@@ -173,21 +197,9 @@ func _update_suit_highlight() -> void:
 		var btn = grid.get_node_or_null(node_name)
 		if btn == null:
 			continue
-		var existing = btn.get_node_or_null("GoldBorder")
-		if existing:
-			existing.queue_free()
-		if suit_val == selected_suit:
-			var border := Panel.new()
-			border.name = "GoldBorder"
-			var style := StyleBoxFlat.new()
-			style.bg_color = Color(0, 0, 0, 0)
-			style.border_color = Color(1.0, 0.8, 0.2)
-			style.set_border_width_all(3)
-			style.set_corner_radius_all(4)
-			border.add_theme_stylebox_override("panel", style)
-			border.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			border.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-			btn.add_child(border)
+		var border = btn.get_node_or_null("GoldBorder")
+		if border:
+			border.visible = (suit_val == selected_suit)
 
 
 func _select_suit(suit: int) -> void:
