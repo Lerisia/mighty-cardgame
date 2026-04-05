@@ -5,11 +5,16 @@ const CardTextureScript = preload("res://scripts/ui/card_texture.gd")
 
 const CARD_BORDER := 2.0
 const CARD_BORDER_COLOR := Color(0.15, 0.15, 0.15, 1.0)
+const DEAL_FLY_DURATION := 0.15
+const DEAL_PATTERN := [1, 2, 3, 4]
 
 var placed_cards: Array = []
+var player_card_counts: Array = [0, 0, 0, 0, 0]
+var dealer_index: int = 0
 
 
 func _ready() -> void:
+	dealer_index = randi() % 5
 	_play_shuffle_animation()
 
 
@@ -72,15 +77,44 @@ func _play_shuffle_animation() -> void:
 	tween.tween_callback(func():
 		for card in cards:
 			card.queue_free()
-		_place_all_hands()
+		_play_deal_animation()
 	)
 
 
-func _place_all_hands() -> void:
+func _play_deal_animation() -> void:
+	var center: Vector2 = CardUtilScript.get_center(get_viewport())
 	var card_size: Vector2 = CardUtilScript.get_card_size(get_viewport())
+	var half_card: Vector2 = card_size / 2.0
+	var deck_pos: Vector2 = center - half_card
 
-	for p in range(5):
-		for i in range(10):
-			var card: Control = _create_card_back(card_size)
-			var pos: Vector2 = CardUtilScript.get_card_position(get_viewport(), p, i, 10)
-			_add_card(card, card_size, pos)
+	var deck_card: Control = _create_card_back(card_size)
+	_add_card(deck_card, card_size, deck_pos)
+
+	var tween: Tween = create_tween()
+	var current_player: int = dealer_index
+	var deal_round_index: int = 0
+
+	for round_num in range(4):
+		for p in range(5):
+			var target_player: int = (current_player + p) % 5
+			var num_to_deal: int = DEAL_PATTERN[(deal_round_index + p) % 4]
+
+			for c in range(num_to_deal):
+				var card_idx: int = player_card_counts[target_player]
+				var target_pos: Vector2 = CardUtilScript.get_card_position(get_viewport(), target_player, card_idx, 10)
+
+				tween.tween_callback(func():
+					var card: Control = _create_card_back(card_size)
+					_add_card(card, card_size, deck_pos)
+					var tw: Tween = create_tween()
+					tw.tween_property(card, "position", target_pos, DEAL_FLY_DURATION).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+				)
+				player_card_counts[target_player] += 1
+
+			tween.tween_interval(DEAL_FLY_DURATION + 0.05)
+
+		deal_round_index += 1
+
+	tween.tween_callback(func():
+		deck_card.queue_free()
+	)
