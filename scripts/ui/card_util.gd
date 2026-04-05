@@ -18,7 +18,7 @@ static func get_card_size(viewport: Viewport) -> Vector2:
 
 static func get_center(viewport: Viewport) -> Vector2:
 	var vp: Vector2 = viewport.get_visible_rect().size
-	return vp / 2.0
+	return Vector2(vp.x / 2.0, vp.y * 0.4)
 
 
 static func get_hand_origin(viewport: Viewport, player_index: int) -> Vector2:
