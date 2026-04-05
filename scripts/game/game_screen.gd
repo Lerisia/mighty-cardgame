@@ -129,8 +129,15 @@ func _show_bid_panel() -> void:
 func _style_bid_panel() -> void:
 	var vh: float = get_viewport_rect().size.y
 	var big_font: int = int(vh / 12.0)
-	var btn_font: int = int(vh / 22.0)
-	var label_font: int = int(vh / 20.0)
+	var btn_font: int = int(vh / 20.0)
+	var label_font: int = int(vh / 18.0)
+	var icon_size: int = int(vh / 8.0)
+
+	var grid = $BidPanel/VBox/TopRow/SuitGrid
+	for suit_name in ["Spade", "Diamond", "Heart", "Club", "NoGiruda"]:
+		var btn = grid.get_node(suit_name)
+		btn.custom_minimum_size = Vector2(icon_size, icon_size)
+
 	$BidPanel/VBox/TopRow/BidDisplay.add_theme_font_size_override("font_size", big_font)
 	$BidPanel/VBox/TopRow/BidDisplay.add_theme_font_override("font", _get_bold_font())
 	$ElectionPanel/ElectionLabel.add_theme_font_size_override("font_size", label_font)
@@ -139,6 +146,7 @@ func _style_bid_panel() -> void:
 	for btn_name in ["BidButton", "PassButton", "DealMissButton"]:
 		var btn: Button = $BidPanel/VBox/BottomRow.get_node(btn_name)
 		btn.add_theme_font_size_override("font_size", btn_font)
+		btn.add_theme_font_override("font", _get_bold_font())
 	$BidPanel/VBox/TopRow/ArrowBox/UpButton.add_theme_font_size_override("font_size", btn_font)
 	$BidPanel/VBox/TopRow/ArrowBox/DownButton.add_theme_font_size_override("font_size", btn_font)
 	_update_suit_highlight()
