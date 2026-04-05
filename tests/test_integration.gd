@@ -3,6 +3,7 @@ extends GdUnitTestSuite
 const RoundManagerScript = preload("res://scripts/game_logic/round_manager.gd")
 const BotManagerScript = preload("res://scripts/ai/bot_manager.gd")
 const BSWStrategyScript = preload("res://scripts/ai/bsw_strategy.gd")
+const XiaoStrategyScript = preload("res://scripts/ai/xiao_strategy.gd")
 const PlayerScript = preload("res://scripts/game_logic/player.gd")
 const BiddingStateScript = preload("res://scripts/game_logic/bidding_state.gd")
 
@@ -99,6 +100,79 @@ func test_multiple_rounds() -> void:
 		rm.calculate_scores()
 
 		dealer = (dealer + 1) % 5
+
+	var total := 0
+	for p in players:
+		total += p.score
+	assert_int(total).is_equal(0)
+
+
+func _run_round(players: Array, bots: Array, dealer: int) -> void:
+	var rm = RoundManagerScript.new(players, dealer, 13)
+	rm.do_deal()
+
+	var safety := 0
+	while not rm.bidding_manager.is_finished() and safety < 100:
+		var turn: int = rm.bidding_manager.current_turn
+		bots[turn].do_bidding_turn(rm.bidding_manager)
+		safety += 1
+
+	rm.advance_from_bidding()
+	bots[rm.declarer_index].do_declarer_phase(rm.declarer_phase)
+	rm.advance_from_declarer()
+
+	safety = 0
+	while not rm.trick_manager.is_game_over() and safety < 100:
+		var turn: int = rm.trick_manager.current_turn
+		bots[turn].do_trick_turn(rm.trick_manager)
+		safety += 1
+
+	rm.advance_from_play()
+	rm.calculate_scores()
+
+
+func test_xiao_full_round() -> void:
+	var players := []
+	var bots := []
+	for i in range(5):
+		players.append(PlayerScript.new("Xiao%d" % i, i, true))
+		bots.append(BotManagerScript.new(XiaoStrategyScript.new(), i))
+
+	_run_round(players, bots, 0)
+	var total := 0
+	for p in players:
+		total += p.score
+	assert_int(total).is_equal(0)
+
+
+func test_mixed_bsw_and_xiao() -> void:
+	var players := []
+	var bots := []
+	for i in range(5):
+		players.append(PlayerScript.new("Player%d" % i, i, true))
+		if i % 2 == 0:
+			bots.append(BotManagerScript.new(BSWStrategyScript.new(), i))
+		else:
+			bots.append(BotManagerScript.new(XiaoStrategyScript.new(), i))
+
+	for round_num in range(3):
+		_run_round(players, bots, round_num % 5)
+
+	var total := 0
+	for p in players:
+		total += p.score
+	assert_int(total).is_equal(0)
+
+
+func test_xiao_multiple_rounds() -> void:
+	var players := []
+	var bots := []
+	for i in range(5):
+		players.append(PlayerScript.new("Xiao%d" % i, i, true))
+		bots.append(BotManagerScript.new(XiaoStrategyScript.new(), i))
+
+	for round_num in range(5):
+		_run_round(players, bots, round_num % 5)
 
 	var total := 0
 	for p in players:
