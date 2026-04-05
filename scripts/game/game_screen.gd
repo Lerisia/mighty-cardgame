@@ -382,6 +382,143 @@ func _end_bidding() -> void:
 	$ElectionPanel.visible = false
 	$BidPanel.visible = false
 	_clear_bid_labels()
+	_start_declarer_phase()
+
+
+func _show_announcement(text: String, duration: float) -> void:
+	var vh: float = get_viewport_rect().size.y
+	var font_size: int = int(vh / 18.0)
+
+	var panel := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0, 0, 0, 0.7)
+	style.set_corner_radius_all(10)
+	style.set_content_margin_all(16)
+	panel.add_theme_stylebox_override("panel", style)
+	panel.z_index = 110
+
+	var label: Label = _create_label(text, font_size, Color.WHITE)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	panel.add_child(label)
+
+	add_child(panel)
+	await get_tree().process_frame
+	panel.position = get_viewport_rect().size / 2.0 - panel.size / 2.0
+
+	await get_tree().create_timer(duration).timeout
+	panel.queue_free()
+
+
+func _start_declarer_phase() -> void:
+	var declarer: int = bidding_manager.get_declarer()
+	var giruda: int = bidding_manager.states[declarer].bid_giruda
+	var bid: int = bidding_manager.states[declarer].bid_count
+	var name: String = PLAYER_NAMES[declarer]
+
+	var msg := "%s의 당선을 축하합니다!\n공약: %s %d\n\n나머지 4인은 %s의 독재 타도를 위해 뭉쳤다!\n그러나 4인 중 한 명은 %s의 숨겨진 심복이다..." % [name, SUIT_DISPLAY.get(giruda, "?"), bid, name, name]
+	await _show_announcement(msg, 3.5)
+
+	_resort_hand_with_giruda(giruda)
+	await get_tree().create_timer(0.5).timeout
+	_move_kitty_to_declarer(declarer)
+
+
+func _resort_hand_with_giruda(giruda: int) -> void:
+	var giruda_suit: int = -1
+	match giruda:
+		BiddingStateScript.Giruda.SPADE: giruda_suit = CardScript.Suit.SPADE
+		BiddingStateScript.Giruda.DIAMOND: giruda_suit = CardScript.Suit.DIAMOND
+		BiddingStateScript.Giruda.HEART: giruda_suit = CardScript.Suit.HEART
+		BiddingStateScript.Giruda.CLUB: giruda_suit = CardScript.Suit.CLUB
+
+	const BASE_SUIT_ORDER := {
+		CardScript.Suit.SPADE: 0,
+		CardScript.Suit.DIAMOND: 1,
+		CardScript.Suit.HEART: 2,
+		CardScript.Suit.CLUB: 3,
+	}
+
+	var sorted_hand: Array = hands[0].duplicate()
+	sorted_hand.sort_custom(func(a, b):
+		if a.is_joker:
+			return true
+		if b.is_joker:
+			return false
+		var a_order: int = 0 if a.suit == giruda_suit else BASE_SUIT_ORDER[a.suit] + 10
+		var b_order: int = 0 if b.suit == giruda_suit else BASE_SUIT_ORDER[b.suit] + 10
+		if a_order != b_order:
+			return a_order < b_order
+		return a.rank > b.rank
+	)
+
+	var sorted_nodes: Array = []
+	for sorted_card in sorted_hand:
+		for entry in p0_card_nodes:
+			if not entry.has("used") and _cards_equal(entry["card_data"], sorted_card):
+				sorted_nodes.append(entry["node"])
+				entry["used"] = true
+				break
+
+	_play_sfx(_sfx_sort)
+	var tween: Tween = create_tween().set_parallel(true)
+	for i in range(sorted_nodes.size()):
+		var target_pos: Vector2 = CardUtilScript.get_card_position(get_viewport(), 0, i, sorted_hand.size())
+		var node: Control = sorted_nodes[i]
+		if is_instance_valid(node):
+			node.z_index = i
+			tween.tween_property(node, "position", target_pos, 0.3).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
+
+	hands[0] = sorted_hand
+	for entry in p0_card_nodes:
+		if entry.has("used"):
+			entry.erase("used")
+
+
+func _move_kitty_to_declarer(declarer: int) -> void:
+	var card_size: Vector2 = CardUtilScript.get_card_size(get_viewport())
+	var my_card_size: Vector2 = CardUtilScript.get_my_card_size(get_viewport())
+
+	if declarer != 0:
+		var origin: Vector2 = CardUtilScript.get_hand_origin(get_viewport(), declarer)
+		var tween: Tween = create_tween()
+		for i in range(3):
+			var kitty_node = placed_cards[i]
+			if is_instance_valid(kitty_node):
+				tween.tween_property(kitty_node, "position", origin, 0.3).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
+				tween.tween_callback(func(): _play_sfx(_sfx_deal))
+				tween.tween_interval(0.15)
+		await tween.finished
+	else:
+		hands[0].append_array(kitty)
+		_resort_hand_with_giruda(bidding_manager.states[0].bid_giruda)
+		await get_tree().create_timer(0.5).timeout
+
+		var total: int = hands[0].size()
+		var center: Vector2 = CardUtilScript.get_center(get_viewport())
+		var half_card: Vector2 = my_card_size / 2.0
+
+		var tween: Tween = create_tween()
+		for i in range(3):
+			var kitty_card = kitty[i]
+			var sorted_idx: int = -1
+			for j in range(total):
+				if _cards_equal(hands[0][j], kitty_card):
+					sorted_idx = j
+					break
+			var target_pos: Vector2 = CardUtilScript.get_card_position(get_viewport(), 0, sorted_idx, total)
+			var raised_pos: Vector2 = target_pos + Vector2(0, -my_card_size.y * 0.15)
+
+			tween.tween_callback(func():
+				var card_node: Control = _create_card_front(my_card_size, kitty_card)
+				_add_card(card_node, my_card_size, center - half_card)
+				p0_card_nodes.append({"node": card_node, "card_data": kitty_card})
+				var tw: Tween = create_tween()
+				tw.tween_property(card_node, "position", raised_pos, 0.3).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+				card_node.z_index = sorted_idx
+				_play_sfx(_sfx_deal)
+			)
+			tween.tween_interval(0.4)
+		await tween.finished
 
 
 const CARD_CORNER_RADIUS := 4.0
