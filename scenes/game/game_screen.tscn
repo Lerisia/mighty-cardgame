@@ -65,17 +65,10 @@ vertical_alignment = 1
 
 [node name="BidPanel" type="PanelContainer" parent="."]
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.45
-anchor_right = 0.5
-anchor_bottom = 0.45
-offset_left = -220.0
-offset_top = -120.0
-offset_right = 220.0
-offset_bottom = 120.0
-grow_horizontal = 2
-grow_vertical = 2
+anchor_left = 0.15
+anchor_top = 0.12
+anchor_right = 0.85
+anchor_bottom = 0.85
 visible = false
 
 [node name="VBox" type="VBoxContainer" parent="BidPanel"]
