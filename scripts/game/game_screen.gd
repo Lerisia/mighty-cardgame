@@ -274,6 +274,7 @@ func _style_election_label() -> void:
 
 func _continue_bidding() -> void:
 	if bidding_manager.is_finished():
+		await get_tree().create_timer(1.5).timeout
 		_end_bidding()
 		return
 
