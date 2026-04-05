@@ -5,10 +5,23 @@ const CardTextureScript = preload("res://scripts/ui/card_texture.gd")
 const DeckScript = preload("res://scripts/game_logic/deck.gd")
 const CardScript = preload("res://scripts/game_logic/card.gd")
 
+const BiddingStateScript = preload("res://scripts/game_logic/bidding_state.gd")
+
 const CARD_BORDER := 1.0
 const CARD_BORDER_COLOR := Color(0.15, 0.15, 0.15, 1.0)
 const DEAL_FLY_DURATION := 0.22
 const DEAL_PATTERN := [1, 2, 3, 4]
+
+const SUIT_DISPLAY := {
+	BiddingStateScript.Giruda.SPADE: "♠",
+	BiddingStateScript.Giruda.DIAMOND: "♦",
+	BiddingStateScript.Giruda.HEART: "♥",
+	BiddingStateScript.Giruda.CLUB: "♣",
+	BiddingStateScript.Giruda.NO_GIRUDA: "X",
+}
+
+const MIN_BID := 13
+const MAX_BID := 20
 
 var placed_cards: Array = []
 var p0_card_nodes: Array = []
@@ -21,6 +34,10 @@ var kitty: Array = []
 
 const PLAYER_NAMES := ["나", "준규", "지훈", "한별", "민욱"]
 
+var selected_suit: int = BiddingStateScript.Giruda.SPADE
+var selected_bid: int = MIN_BID
+var election_round: int = 1
+
 
 func _ready() -> void:
 	dealer_index = randi() % 5
@@ -31,6 +48,7 @@ func _ready() -> void:
 	$TopButtons/ExitButton.pressed.connect(_on_exit_pressed)
 	$ExitConfirmPopup/VBox/Buttons/ConfirmExit.pressed.connect(_on_confirm_exit)
 	$ExitConfirmPopup/VBox/Buttons/CancelExit.pressed.connect(_on_cancel_exit)
+	_setup_bid_panel()
 	_style_top_buttons()
 	_play_shuffle_animation()
 
@@ -76,6 +94,77 @@ func _on_confirm_exit() -> void:
 
 func _on_cancel_exit() -> void:
 	$ExitConfirmPopup.hide()
+
+
+func _setup_bid_panel() -> void:
+	var suits = $BidPanel/VBox/TopRow/SuitGrid
+	suits.get_node("Spade").pressed.connect(func(): _select_suit(BiddingStateScript.Giruda.SPADE))
+	suits.get_node("Diamond").pressed.connect(func(): _select_suit(BiddingStateScript.Giruda.DIAMOND))
+	suits.get_node("Heart").pressed.connect(func(): _select_suit(BiddingStateScript.Giruda.HEART))
+	suits.get_node("Club").pressed.connect(func(): _select_suit(BiddingStateScript.Giruda.CLUB))
+	suits.get_node("NoGiruda").pressed.connect(func(): _select_suit(BiddingStateScript.Giruda.NO_GIRUDA))
+	$BidPanel/VBox/TopRow/ArrowBox/UpButton.pressed.connect(_on_bid_up)
+	$BidPanel/VBox/TopRow/ArrowBox/DownButton.pressed.connect(_on_bid_down)
+	$BidPanel/VBox/BottomRow/BidButton.pressed.connect(_on_bid_submit)
+	$BidPanel/VBox/BottomRow/PassButton.pressed.connect(_on_bid_pass)
+
+
+func _show_bid_panel() -> void:
+	selected_suit = BiddingStateScript.Giruda.SPADE
+	selected_bid = MIN_BID
+	_update_bid_display()
+	$ElectionLabel.text = "제 %d회 선거" % election_round
+	$ElectionLabel.visible = true
+	$BidPanel.visible = true
+	_style_bid_panel()
+
+
+func _style_bid_panel() -> void:
+	var vh: float = get_viewport_rect().size.y
+	var big_font: int = int(vh / 15.0)
+	var btn_font: int = int(vh / 28.0)
+	var label_font: int = int(vh / 25.0)
+	$BidPanel/VBox/TopRow/BidDisplay.add_theme_font_size_override("font_size", big_font)
+	$BidPanel/VBox/TopRow/BidDisplay.add_theme_font_override("font", _get_bold_font())
+	$ElectionLabel.add_theme_font_size_override("font_size", label_font)
+	$ElectionLabel.add_theme_font_override("font", _get_bold_font())
+	for btn_name in ["BidButton", "PassButton", "DealMissButton"]:
+		var btn: Button = $BidPanel/VBox/BottomRow.get_node(btn_name)
+		btn.add_theme_font_size_override("font_size", btn_font)
+	$BidPanel/VBox/TopRow/ArrowBox/UpButton.add_theme_font_size_override("font_size", btn_font)
+	$BidPanel/VBox/TopRow/ArrowBox/DownButton.add_theme_font_size_override("font_size", btn_font)
+
+
+func _update_bid_display() -> void:
+	var suit_str: String = SUIT_DISPLAY[selected_suit]
+	$BidPanel/VBox/TopRow/BidDisplay.text = "%s %d" % [suit_str, selected_bid]
+
+
+func _select_suit(suit: int) -> void:
+	selected_suit = suit
+	_update_bid_display()
+
+
+func _on_bid_up() -> void:
+	if selected_bid < MAX_BID:
+		selected_bid += 1
+		_update_bid_display()
+
+
+func _on_bid_down() -> void:
+	if selected_bid > MIN_BID:
+		selected_bid -= 1
+		_update_bid_display()
+
+
+func _on_bid_submit() -> void:
+	$BidPanel.visible = false
+	$ElectionLabel.visible = false
+
+
+func _on_bid_pass() -> void:
+	$BidPanel.visible = false
+	$ElectionLabel.visible = false
 
 
 const CARD_CORNER_RADIUS := 4.0
@@ -279,6 +368,8 @@ func _sort_and_rearrange_p0() -> void:
 	tween.set_parallel(false)
 	tween.tween_interval(0.3)
 	tween.tween_callback(_show_player_names)
+	tween.tween_interval(0.5)
+	tween.tween_callback(_show_bid_panel)
 
 
 var _bold_font: Font = null
