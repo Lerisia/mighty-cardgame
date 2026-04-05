@@ -296,45 +296,45 @@ func _show_player_names() -> void:
 	var vp: Vector2 = get_viewport_rect().size
 	var cs: Vector2 = CardUtilScript.get_card_size(get_viewport())
 	var my_cs: Vector2 = CardUtilScript.get_my_card_size(get_viewport())
-	var font_size: int = int(vp.y / 35.0)
-	var small_font: int = int(vp.y / 45.0)
+	var font_size: int = int(vp.y / 22.0)
 
 	for p in range(5):
 		var origin: Vector2 = CardUtilScript.get_hand_origin(get_viewport(), p)
 		var name_label: Label = _create_label(PLAYER_NAMES[p], font_size)
-		var score_label: Label = _create_label("0점", small_font, Color(1.0, 0.9, 0.5))
+		var score_label: Label = _create_label("1000점", font_size, Color(1.0, 0.9, 0.5))
 
 		add_child(name_label)
 		add_child(score_label)
 
 		var name_pos: Vector2
 		var score_pos: Vector2
+		var line_h: float = font_size + 6
 
 		match p:
 			0:
 				var hand_right: float = origin.x + CardUtilScript._my_hand_width(my_cs, 10)
-				name_pos = Vector2(hand_right + 10, origin.y)
-				score_pos = Vector2(hand_right + 10, origin.y + font_size + 4)
+				name_pos = Vector2(hand_right + 15, origin.y)
+				score_pos = Vector2(hand_right + 15, origin.y + line_h)
 			1:
 				var card_right: float = origin.x + cs.x
-				var card_mid_y: float = origin.y + cs.y * CardUtilScript.CARD_OVERLAP_V * 9 * 0.5
-				name_pos = Vector2(card_right + 5, card_mid_y)
-				score_pos = Vector2(card_right + 5, card_mid_y + font_size + 4)
+				var card_bottom: float = origin.y + cs.y * CardUtilScript.CARD_OVERLAP_V * 9 + cs.y
+				name_pos = Vector2(card_right + 8, card_bottom + 5)
+				score_pos = Vector2(card_right + 8, card_bottom + 5 + line_h)
 			2:
 				var card_bottom: float = cs.y * 0.5
-				name_pos = Vector2(origin.x, card_bottom + 5)
-				score_pos = Vector2(origin.x + font_size * 2 + 10, card_bottom + 5)
+				name_pos = Vector2(origin.x, card_bottom + 8)
+				score_pos = Vector2(origin.x + font_size * 3, card_bottom + 8)
 			3:
 				var hand_w: float = CardUtilScript._hand_width(cs, 10)
 				var card_bottom: float = cs.y * 0.5
-				var mid_x: float = origin.x + hand_w * 0.5
-				name_pos = Vector2(mid_x, card_bottom + 5)
-				score_pos = Vector2(mid_x + font_size * 2 + 10, card_bottom + 5)
+				var right_x: float = origin.x + hand_w
+				name_pos = Vector2(right_x - font_size * 6, card_bottom + 8)
+				score_pos = Vector2(right_x - font_size * 3, card_bottom + 8)
 			4:
 				var card_left: float = origin.x
-				var card_mid_y: float = origin.y + cs.y * CardUtilScript.CARD_OVERLAP_V * 9 * 0.5
-				name_pos = Vector2(card_left - font_size * 2 - 10, card_mid_y)
-				score_pos = Vector2(card_left - font_size * 2 - 10, card_mid_y + font_size + 4)
+				var card_bottom: float = origin.y + cs.y * CardUtilScript.CARD_OVERLAP_V * 9 + cs.y
+				name_pos = Vector2(card_left - font_size * 3 - 8, card_bottom + 5)
+				score_pos = Vector2(card_left - font_size * 3 - 8, card_bottom + 5 + line_h)
 
 		name_label.position = name_pos
 		score_label.position = score_pos
