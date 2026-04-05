@@ -220,7 +220,10 @@ func _on_bid_up() -> void:
 
 
 func _on_bid_down() -> void:
-	if selected_bid > MIN_BID:
+	var min_allowed: int = MIN_BID
+	if bidding_manager and bidding_manager.highest_bid >= MIN_BID:
+		min_allowed = bidding_manager.highest_bid + 1
+	if selected_bid > min_allowed:
 		selected_bid -= 1
 		_update_bid_display()
 
@@ -229,6 +232,7 @@ func _on_bid_submit() -> void:
 	$BidPanel.visible = false
 	if bidding_manager.place_bid(0, selected_bid, selected_suit):
 		_show_player_bid(0, selected_suit, selected_bid)
+		_play_sfx(_sfx_bid)
 	else:
 		_show_player_bid_text(0, "무효")
 	_continue_bidding()
@@ -238,6 +242,7 @@ func _on_bid_pass() -> void:
 	$BidPanel.visible = false
 	bidding_manager.pass_turn(0)
 	_show_player_bid_text(0, "패스")
+	_play_sfx(_sfx_pass)
 	_continue_bidding()
 
 
@@ -344,19 +349,20 @@ func _show_player_bid_text(player_index: int, text: String) -> void:
 	var origin: Vector2 = CardUtilScript.get_hand_origin(get_viewport(), player_index)
 	var cs: Vector2 = CardUtilScript.get_card_size(get_viewport())
 
+	var vert_cards_h: float = cs.y + cs.y * CardUtilScript.CARD_OVERLAP_V * 9
 	match player_index:
 		0:
 			var my_cs: Vector2 = CardUtilScript.get_my_card_size(get_viewport())
 			panel.position = Vector2(origin.x + CardUtilScript._my_hand_width(my_cs, 10) / 2.0, origin.y - font_size - 20)
 		1:
-			panel.position = Vector2(origin.x + cs.x + 10, origin.y)
+			panel.position = Vector2(origin.x + cs.x + 10, origin.y + vert_cards_h * 0.6)
 		2:
 			panel.position = Vector2(origin.x, cs.y * 0.5 + 30)
 		3:
 			var hand_w: float = CardUtilScript._hand_width(cs, 10)
 			panel.position = Vector2(origin.x + hand_w / 2.0, cs.y * 0.5 + 30)
 		4:
-			panel.position = Vector2(origin.x - font_size * 5, origin.y)
+			panel.position = Vector2(origin.x - font_size * 5, origin.y + vert_cards_h * 0.6)
 
 	add_child(panel)
 	bid_labels[player_index] = panel
