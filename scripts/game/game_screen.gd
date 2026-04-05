@@ -115,7 +115,9 @@ func _show_bid_panel() -> void:
 	_update_bid_display()
 	$ElectionLabel.text = "제 %d회 선거" % election_round
 	$ElectionLabel.visible = true
+	$ElectionLabel.z_index = 100
 	$BidPanel.visible = true
+	$BidPanel.z_index = 100
 	_style_bid_panel()
 
 
