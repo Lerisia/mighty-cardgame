@@ -21,7 +21,7 @@ static func get_card_size(viewport: Viewport) -> Vector2:
 
 static func get_my_card_size(viewport: Viewport) -> Vector2:
 	var vp: Vector2 = viewport.get_visible_rect().size
-	var h: float = vp.y / 4.0
+	var h: float = vp.y / 3.0
 	return Vector2(h * CARD_ASPECT, h)
 
 
@@ -35,7 +35,7 @@ static func get_hand_origin(viewport: Viewport, player_index: int) -> Vector2:
 	var cs: Vector2 = get_card_size(viewport)
 	var my_cs: Vector2 = get_my_card_size(viewport)
 	match player_index:
-		0: return Vector2(vp.x / 2.0 - _my_hand_width(my_cs, 10) / 2.0, vp.y - my_cs.y - 10)
+		0: return Vector2(vp.x / 2.0 - _my_hand_width(my_cs, 10) / 2.0, vp.y - my_cs.y * 0.55)
 		1: return Vector2(vp.x * 0.01, vp.y * 0.25)
 		2: return Vector2(vp.x * 0.05, -cs.y * 0.5)
 		3: return Vector2(vp.x - vp.x * 0.05 - _hand_width(cs, 10), -cs.y * 0.5)
