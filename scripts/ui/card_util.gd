@@ -8,7 +8,10 @@ const MY_CARD_OVERLAP_H := 0.45
 
 
 static func get_card_height(viewport: Viewport) -> float:
-	return viewport.get_visible_rect().size.y / 5.0
+	var vp: Vector2 = viewport.get_visible_rect().size
+	var from_height: float = vp.y / 5.0
+	var from_width: float = vp.x / 12.0 / CARD_ASPECT
+	return mini(int(from_height), int(from_width))
 
 
 static func get_card_size(viewport: Viewport) -> Vector2:
@@ -26,10 +29,10 @@ static func get_hand_origin(viewport: Viewport, player_index: int) -> Vector2:
 	var cs: Vector2 = get_card_size(viewport)
 	match player_index:
 		0: return Vector2(vp.x / 2.0 - _my_hand_width(cs, 10) / 2.0, vp.y - cs.y - 10)
-		1: return Vector2(5, vp.y * 0.25)
+		1: return Vector2(vp.x * 0.01, vp.y * 0.25)
 		2: return Vector2(vp.x * 0.05, -cs.y * 0.5)
-		3: return Vector2(vp.x * 0.95 - _hand_width(cs, 10), -cs.y * 0.5)
-		4: return Vector2(vp.x - cs.x - 5, vp.y * 0.25)
+		3: return Vector2(vp.x - vp.x * 0.05 - _hand_width(cs, 10), -cs.y * 0.5)
+		4: return Vector2(vp.x - cs.x - vp.x * 0.01, vp.y * 0.25)
 	return Vector2.ZERO
 
 
