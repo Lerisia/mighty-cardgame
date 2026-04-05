@@ -18,6 +18,10 @@ window/stretch/mode="canvas_items"
 window/stretch/aspect="keep_height"
 window/handheld/orientation=0
 
+[gui]
+
+theme/custom="res://assets/theme/default_theme.tres"
+
 [rendering]
 
 renderer/rendering_method="mobile"
