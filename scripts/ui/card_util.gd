@@ -26,10 +26,10 @@ static func get_hand_origin(viewport: Viewport, player_index: int) -> Vector2:
 	var cs: Vector2 = get_card_size(viewport)
 	match player_index:
 		0: return Vector2(vp.x / 2.0 - _my_hand_width(cs, 10) / 2.0, vp.y - cs.y - 10)
-		1: return Vector2(5, vp.y * 0.15)
+		1: return Vector2(5, vp.y * 0.25)
 		2: return Vector2(vp.x * 0.05, -cs.y * 0.5)
 		3: return Vector2(vp.x * 0.95 - _hand_width(cs, 10), -cs.y * 0.5)
-		4: return Vector2(vp.x - cs.x - 5, vp.y * 0.15)
+		4: return Vector2(vp.x - cs.x - 5, vp.y * 0.25)
 	return Vector2.ZERO
 
 
