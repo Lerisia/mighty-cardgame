@@ -3,13 +3,14 @@ extends Control
 const CardUtilScript = preload("res://scripts/ui/card_util.gd")
 const CardTextureScript = preload("res://scripts/ui/card_texture.gd")
 
+const CARD_BORDER := 2.0
+const CARD_BORDER_COLOR := Color(0.15, 0.15, 0.15, 1.0)
+
+var placed_cards: Array = []
+
 
 func _ready() -> void:
 	_play_shuffle_animation()
-
-
-const CARD_BORDER := 2.0
-const CARD_BORDER_COLOR := Color(0.15, 0.15, 0.15, 1.0)
 
 
 func _create_card_back(card_size: Vector2) -> Control:
@@ -26,6 +27,14 @@ func _create_card_back(card_size: Vector2) -> Control:
 	return container
 
 
+func _add_card(card: Control, card_size: Vector2, pos: Vector2) -> void:
+	add_child(card)
+	card.get_child(1).size = card_size
+	card.size = card_size
+	card.position = pos
+	placed_cards.append(card)
+
+
 func _play_shuffle_animation() -> void:
 	var center: Vector2 = CardUtilScript.get_center(get_viewport())
 	var card_size: Vector2 = CardUtilScript.get_card_size(get_viewport())
@@ -40,10 +49,7 @@ func _play_shuffle_animation() -> void:
 
 	for i in range(num_cards):
 		var card: Control = _create_card_back(card_size)
-		add_child(card)
-		card.size = card_size
-		card.get_child(1).size = card_size
-		card.position = card_origin
+		_add_card(card, card_size, card_origin)
 		cards.append(card)
 
 	var tween: Tween = create_tween()
@@ -66,4 +72,15 @@ func _play_shuffle_animation() -> void:
 	tween.tween_callback(func():
 		for card in cards:
 			card.queue_free()
+		_place_all_hands()
 	)
+
+
+func _place_all_hands() -> void:
+	var card_size: Vector2 = CardUtilScript.get_card_size(get_viewport())
+
+	for p in range(5):
+		for i in range(10):
+			var card: Control = _create_card_back(card_size)
+			var pos: Vector2 = CardUtilScript.get_card_position(get_viewport(), p, i, 10)
+			_add_card(card, card_size, pos)
