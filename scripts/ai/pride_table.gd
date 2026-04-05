@@ -145,7 +145,7 @@ static func pride_to_min_score(pride: int, pride_fac: int, min_bid: int) -> int:
 
 
 static func evaluate_best_giruda(hand: Array) -> Dictionary:
-	var best_pride: int = -999999
+	var best_pride: int = 0
 	var best_giruda: int = BiddingStateScript.Giruda.NONE
 
 	var giruda_options: Array = [
@@ -166,7 +166,7 @@ static func evaluate_best_giruda(hand: Array) -> Dictionary:
 
 
 static func evaluate_best_giruda_13(hand: Array) -> Dictionary:
-	var best_pride: int = -999999
+	var best_pride: int = 0
 	var best_giruda: int = BiddingStateScript.Giruda.NONE
 	var best_drop: Array = [0, 0, 0]
 

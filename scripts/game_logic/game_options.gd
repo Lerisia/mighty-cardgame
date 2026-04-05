@@ -57,6 +57,6 @@ var deal_miss_non_point_score: float = 0.0
 
 # === Display ===
 
-enum SuitDisplay { ENGLISH, KOREAN }
+enum SuitDisplay { ENGLISH, KOREAN, SHORT_KOREAN }
 
 var suit_display_style: int = SuitDisplay.ENGLISH
