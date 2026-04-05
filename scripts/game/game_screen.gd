@@ -8,35 +8,41 @@ func _ready() -> void:
 	_play_shuffle_animation()
 
 
+func _create_card_back(card_size: Vector2) -> Control:
+	var container := Control.new()
+	container.size = card_size
+	container.clip_contents = true
+	var tex := TextureRect.new()
+	tex.texture = CardTextureScript.get_back_texture()
+	tex.position = Vector2.ZERO
+	tex.size = card_size
+	tex.stretch_mode = TextureRect.STRETCH_SCALE
+	container.add_child(tex)
+	return container
+
+
 func _play_shuffle_animation() -> void:
 	var center: Vector2 = CardUtilScript.get_center(get_viewport())
 	var card_size: Vector2 = CardUtilScript.get_card_size(get_viewport())
-	var back_tex: Texture2D = CardTextureScript.get_back_texture()
-	var half_w: float = card_size.x / 2.0
-	var half_h: float = card_size.y / 2.0
-	var card_origin: Vector2 = center - Vector2(half_w, half_h)
+	var half_card: Vector2 = card_size / 2.0
+	var card_origin: Vector2 = center - half_card
 
-	var left_pos: Vector2 = card_origin + Vector2(-half_w - 5, 0)
-	var right_pos: Vector2 = card_origin + Vector2(half_w + 5, 0)
+	var left_pos: Vector2 = card_origin + Vector2(-half_card.x - 5, 0)
+	var right_pos: Vector2 = card_origin + Vector2(half_card.x + 5, 0)
 
 	var num_cards: int = 10
 	var cards: Array = []
 
 	for i in range(num_cards):
-		var tex := TextureRect.new()
-		tex.texture = back_tex
-		tex.custom_minimum_size = card_size
-		tex.size = card_size
-		tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		tex.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
-		tex.position = card_origin
-		add_child(tex)
-		cards.append(tex)
+		var card: Control = _create_card_back(card_size)
+		card.position = card_origin
+		add_child(card)
+		cards.append(card)
 
 	var tween: Tween = create_tween()
 
 	for i in range(num_cards):
-		var card = cards[i]
+		var card: Control = cards[i]
 		var target: Vector2 = left_pos if i % 2 == 0 else right_pos
 		tween.tween_property(card, "position", target, 0.08)
 
@@ -44,7 +50,7 @@ func _play_shuffle_animation() -> void:
 
 	for i in range(num_cards):
 		var idx: int = num_cards - 1 - i
-		var card = cards[idx]
+		var card: Control = cards[idx]
 		var drop_offset: Vector2 = Vector2(0, -i * 2)
 		tween.tween_property(card, "position", card_origin + drop_offset, 0.06)
 
