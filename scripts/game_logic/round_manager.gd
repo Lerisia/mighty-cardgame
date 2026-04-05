@@ -126,10 +126,24 @@ func calculate_scores() -> bool:
 
 	var result: Dictionary = ScoreCalcScript.calculate_with_options(bid, ruling_points, options.min_bid, no_friend, is_no_giruda, options)
 
+	var actual_friend: int = -1
+	if not no_friend:
+		if trick_manager.friend_revealed:
+			actual_friend = trick_manager.friend_index
+		else:
+			for i in range(players.size()):
+				if i != declarer_index and trick_manager.states[i].is_friend:
+					actual_friend = i
+					break
+
+	var effective_no_friend: bool = no_friend or actual_friend < 0
+	if effective_no_friend and not no_friend:
+		result = ScoreCalcScript.calculate_with_options(bid, ruling_points, options.min_bid, true, is_no_giruda, options)
+
 	for i in range(players.size()):
 		if i == declarer_index:
 			players[i].add_score(result["declarer"])
-		elif trick_manager.friend_revealed and i == trick_manager.friend_index:
+		elif not effective_no_friend and i == actual_friend:
 			players[i].add_score(result["friend"])
 		else:
 			players[i].add_score(result["opposition"])
