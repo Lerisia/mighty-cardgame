@@ -29,6 +29,7 @@ const MAX_BID := 20
 
 var placed_cards: Array = []
 var p0_card_nodes: Array = []
+var crown_nodes: Array = []
 var name_labels: Array = []
 var score_labels: Array = []
 var player_card_counts: Array = [0, 0, 0, 0, 0]
@@ -410,6 +411,45 @@ func _show_announcement_stay(text: String) -> void:
 	_announcement_panel.position = get_viewport_rect().size / 2.0 - _announcement_panel.size / 2.0
 
 
+func _show_crown(declarer: int) -> void:
+	for c in crown_nodes:
+		if is_instance_valid(c):
+			c.queue_free()
+	crown_nodes.clear()
+
+	if declarer < 0 or declarer >= name_labels.size():
+		return
+	var name_label: Label = name_labels[declarer]
+	if not is_instance_valid(name_label):
+		return
+
+	var vh: float = get_viewport_rect().size.y
+	var icon_size: int = int(vh / 25.0)
+	var crown_tex: Texture2D = load("res://assets/icons/crown.png")
+
+	var crown := TextureRect.new()
+	crown.texture = crown_tex
+	crown.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	crown.z_index = 95
+	add_child(crown)
+	crown.size = Vector2(icon_size, icon_size)
+
+	var name_pos: Vector2 = name_label.position
+	match declarer:
+		0:
+			crown.position = Vector2(name_pos.x + name_label.size.x + 5, name_pos.y)
+		1:
+			crown.position = Vector2(name_pos.x, name_pos.y - icon_size - 2)
+		2:
+			crown.position = Vector2(name_pos.x - icon_size - 5, name_pos.y)
+		3:
+			crown.position = Vector2(name_pos.x - icon_size - 5, name_pos.y)
+		4:
+			crown.position = Vector2(name_pos.x, name_pos.y - icon_size - 2)
+
+	crown_nodes.append(crown)
+
+
 func _hide_announcement() -> void:
 	if _announcement_panel and is_instance_valid(_announcement_panel):
 		_announcement_panel.queue_free()
@@ -423,6 +463,7 @@ func _start_declarer_phase() -> void:
 	var dname: String = PLAYER_NAMES[declarer]
 
 	var msg := "%s의 당선을 축하합니다!\n공약: %s %d\n\n나머지 4인은 %s의 독재 타도를 위해 뭉쳤다!\n그러나 4인 중 한 명은 %s의 숨겨진 심복이다..." % [dname, SUIT_DISPLAY.get(giruda, "?"), bid, dname, dname]
+	_show_crown(declarer)
 	await _show_announcement_stay(msg)
 	await get_tree().create_timer(1.0).timeout
 
