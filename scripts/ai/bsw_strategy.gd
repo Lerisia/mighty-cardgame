@@ -27,13 +27,8 @@ func decide_bid(hand: Array, min_bid: int, current_highest: int, current_giruda:
 	var bid_value: int
 	if current_highest < target and current_highest > 0:
 		bid_value = current_highest + 1
-	elif current_highest == 0:
-		bid_value = min_bid
 	else:
-		return {"pass": true}
-
-	if bid_value > target:
-		return {"pass": true}
+		bid_value = min_bid
 
 	return {"pass": false, "bid": bid_value, "giruda": eval_result["giruda"]}
 

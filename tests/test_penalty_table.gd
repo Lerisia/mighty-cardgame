@@ -50,12 +50,12 @@ func test_joker_last_after_jokercall_and_mighty_used() -> void:
 
 func test_effective_jokercall_penalty() -> void:
 	var jc = CardScript.new(C, CardScript.Rank.THREE)
-	assert_int(PenaltyTableScript.card_usage_penalty(jc, giruda, empty_used, true)).is_equal(300)
+	assert_int(PenaltyTableScript.card_usage_penalty(jc, giruda, empty_used, false)).is_equal(300)
 
 
-func test_jokercall_no_joker_normal_penalty() -> void:
+func test_jokercall_opponent_has_joker_normal_penalty() -> void:
 	var jc = CardScript.new(C, CardScript.Rank.THREE)
-	var p = PenaltyTableScript.card_usage_penalty(jc, giruda, empty_used, false)
+	var p = PenaltyTableScript.card_usage_penalty(jc, giruda, empty_used, true)
 	assert_int(p).is_less(300)
 
 

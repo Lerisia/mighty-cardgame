@@ -6,6 +6,10 @@ config/name="Mighty Card Game"
 config/features=PackedStringArray("4.4")
 run/main_scene="res://scenes/ui/main_menu.tscn"
 
+[autoload]
+
+OptionsManager="*res://scripts/autoload/options_manager.gd"
+
 [display]
 
 window/size/viewport_width=1280
