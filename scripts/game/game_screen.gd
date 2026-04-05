@@ -140,6 +140,7 @@ func _style_bid_panel() -> void:
 
 	$BidPanel/VBox/TopRow/BidDisplay.add_theme_font_size_override("font_size", big_font)
 	$BidPanel/VBox/TopRow/BidDisplay.add_theme_font_override("font", _get_bold_font())
+	$BidPanel/VBox/TopRow/BidDisplay.custom_minimum_size.x = big_font * 5
 	$ElectionPanel/ElectionLabel.add_theme_font_size_override("font_size", label_font)
 	$ElectionPanel/ElectionLabel.add_theme_font_override("font", _get_bold_font())
 	$ElectionPanel/ElectionLabel.add_theme_color_override("font_color", Color.WHITE)
