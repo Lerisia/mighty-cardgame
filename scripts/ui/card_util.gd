@@ -19,6 +19,12 @@ static func get_card_size(viewport: Viewport) -> Vector2:
 	return Vector2(h * CARD_ASPECT, h)
 
 
+static func get_my_card_size(viewport: Viewport) -> Vector2:
+	var vp: Vector2 = viewport.get_visible_rect().size
+	var h: float = vp.y / 4.0
+	return Vector2(h * CARD_ASPECT, h)
+
+
 static func get_center(viewport: Viewport) -> Vector2:
 	var vp: Vector2 = viewport.get_visible_rect().size
 	return Vector2(vp.x / 2.0, vp.y * 0.45)
@@ -27,8 +33,9 @@ static func get_center(viewport: Viewport) -> Vector2:
 static func get_hand_origin(viewport: Viewport, player_index: int) -> Vector2:
 	var vp: Vector2 = viewport.get_visible_rect().size
 	var cs: Vector2 = get_card_size(viewport)
+	var my_cs: Vector2 = get_my_card_size(viewport)
 	match player_index:
-		0: return Vector2(vp.x / 2.0 - _my_hand_width(cs, 10) / 2.0, vp.y - cs.y - 10)
+		0: return Vector2(vp.x / 2.0 - _my_hand_width(my_cs, 10) / 2.0, vp.y - my_cs.y - 10)
 		1: return Vector2(vp.x * 0.01, vp.y * 0.25)
 		2: return Vector2(vp.x * 0.05, -cs.y * 0.5)
 		3: return Vector2(vp.x - vp.x * 0.05 - _hand_width(cs, 10), -cs.y * 0.5)
@@ -47,7 +54,8 @@ static func get_card_position(viewport: Viewport, player_index: int, card_index:
 		var step: float = cs.y * CARD_OVERLAP_V
 		return origin + Vector2(0, card_index * step)
 	elif player_index == 0:
-		var step: float = cs.x * MY_CARD_OVERLAP_H
+		var my_cs: Vector2 = get_my_card_size(viewport)
+		var step: float = my_cs.x * MY_CARD_OVERLAP_H
 		return origin + Vector2(card_index * step, 0)
 	else:
 		var step: float = cs.x * CARD_OVERLAP_H

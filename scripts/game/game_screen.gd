@@ -160,6 +160,7 @@ func _play_shuffle_animation() -> void:
 func _play_deal_animation() -> void:
 	var center: Vector2 = CardUtilScript.get_center(get_viewport())
 	var card_size: Vector2 = CardUtilScript.get_card_size(get_viewport())
+	var my_card_size: Vector2 = CardUtilScript.get_my_card_size(get_viewport())
 	var half_card: Vector2 = card_size / 2.0
 	var deck_pos: Vector2 = center - half_card
 
@@ -191,12 +192,15 @@ func _play_deal_animation() -> void:
 
 				tween.tween_callback(func():
 					var card: Control
+					var sz: Vector2
 					if is_p0:
-						card = _create_card_front(card_size, hands[0][p0_idx])
+						sz = my_card_size
+						card = _create_card_front(sz, hands[0][p0_idx])
 						p0_card_nodes.append({"node": card, "card_data": hands[0][p0_idx]})
 					else:
-						card = _create_card_back(card_size)
-					_add_card(card, card_size, deck_pos)
+						sz = card_size
+						card = _create_card_back(sz)
+					_add_card(card, sz, deck_pos)
 					var tw: Tween = create_tween()
 					tw.tween_property(card, "position", target_pos, DEAL_FLY_DURATION).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
 				)
