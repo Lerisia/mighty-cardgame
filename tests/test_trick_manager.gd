@@ -5,6 +5,7 @@ const PlayStateScript = preload("res://scripts/game_logic/play_state.gd")
 const CardScript = preload("res://scripts/game_logic/card.gd")
 const BiddingStateScript = preload("res://scripts/game_logic/bidding_state.gd")
 const DeclarerPhaseScript = preload("res://scripts/game_logic/declarer_phase.gd")
+const GameOptionsScript = preload("res://scripts/game_logic/game_options.gd")
 
 var S := CardScript.Suit.SPADE
 var D := CardScript.Suit.DIAMOND
@@ -332,3 +333,88 @@ func test_friend_reveal_moves_points_to_face_down() -> void:
 	mgr.play_card(2, friend_card)
 	assert_bool(mgr.friend_revealed).is_true()
 	assert_int(mgr.states[2].point_cards.size()).is_equal(0)
+
+
+# --- Custom joker call card ---
+
+func test_custom_joker_call_card() -> void:
+	var opts = GameOptionsScript.new()
+	opts.alter_joker_call_suit = CardScript.Suit.HEART
+	opts.alter_joker_call_rank = CardScript.Rank.THREE
+	var states = _make_states()
+	# Default joker call (C3) should not work when giruda != club
+	states[0].hand[0] = CardScript.new(H, CardScript.Rank.THREE)
+	var friend_call := {"type": DeclarerPhaseScript.FriendCallType.NO_FRIEND}
+	var mgr = TrickManagerScript.new(states, 0, BiddingStateScript.Giruda.SPADE, friend_call, opts)
+	mgr.trick_number = 1
+	# H3 is the alter joker call for spade giruda? No - default is C3, alter is H3
+	# Wait, the logic: if giruda == club, use alter. Otherwise use default (C3).
+	# With custom opts: if giruda == club, use alter_joker_call. Otherwise use default (C3).
+	# Actually we need to rethink: the joker call card should just use default C3 normally,
+	# and alter when giruda is club. The alter is customizable.
+	# So H3 should NOT be joker call when giruda=spade. C3 should be.
+	assert_bool(mgr.play_card_with_joker_call(0, states[0].hand[0])).is_false()
+
+
+func test_custom_alter_joker_call_when_club_giruda() -> void:
+	var opts = GameOptionsScript.new()
+	opts.alter_joker_call_suit = CardScript.Suit.HEART
+	opts.alter_joker_call_rank = CardScript.Rank.THREE
+	var states = _make_states()
+	states[0].hand[0] = CardScript.new(H, CardScript.Rank.THREE)
+	var friend_call := {"type": DeclarerPhaseScript.FriendCallType.NO_FRIEND}
+	var mgr = TrickManagerScript.new(states, 0, BiddingStateScript.Giruda.CLUB, friend_call, opts)
+	mgr.trick_number = 1
+	assert_bool(mgr.play_card_with_joker_call(0, states[0].hand[0])).is_true()
+
+
+# --- Last trick friend (막구 프렌드) ---
+
+func test_last_trick_friend_enabled() -> void:
+	var opts = GameOptionsScript.new()
+	opts.allow_last_trick_friend = true
+	var states := []
+	for i in range(5):
+		var st = PlayStateScript.new()
+		st.hand.append(CardScript.new(H, CardScript.Rank.TWO + i))
+		states.append(st)
+	var friend_call := {"type": DeclarerPhaseScript.FriendCallType.NO_FRIEND}
+	var mgr = TrickManagerScript.new(states, 0, BiddingStateScript.Giruda.SPADE, friend_call, opts)
+	mgr.trick_number = 9
+	for i in range(5):
+		mgr.play_card(i, mgr.states[i].hand[0])
+	# Player with highest card (H6 = player 4) wins last trick => becomes friend
+	assert_bool(mgr.friend_revealed).is_true()
+	assert_int(mgr.friend_index).is_equal(4)
+
+
+func test_last_trick_friend_disabled_by_default() -> void:
+	var states := []
+	for i in range(5):
+		var st = PlayStateScript.new()
+		st.hand.append(CardScript.new(H, CardScript.Rank.TWO + i))
+		states.append(st)
+	var friend_call := {"type": DeclarerPhaseScript.FriendCallType.NO_FRIEND}
+	var mgr = TrickManagerScript.new(states, 0, BiddingStateScript.Giruda.SPADE, friend_call)
+	mgr.trick_number = 9
+	for i in range(5):
+		mgr.play_card(i, mgr.states[i].hand[0])
+	assert_bool(mgr.friend_revealed).is_false()
+
+
+func test_last_trick_friend_not_declarer() -> void:
+	var opts = GameOptionsScript.new()
+	opts.allow_last_trick_friend = true
+	var states := []
+	for i in range(5):
+		var st = PlayStateScript.new()
+		st.hand.append(CardScript.new(H, CardScript.Rank.TWO + i))
+		states.append(st)
+	# Declarer is player 4 who also wins the last trick => no friend reveal
+	var friend_call := {"type": DeclarerPhaseScript.FriendCallType.NO_FRIEND}
+	var mgr = TrickManagerScript.new(states, 4, BiddingStateScript.Giruda.SPADE, friend_call, opts)
+	mgr.trick_number = 9
+	mgr.current_turn = 0
+	for i in range(5):
+		mgr.play_card(i, mgr.states[i].hand[0])
+	assert_bool(mgr.friend_revealed).is_false()

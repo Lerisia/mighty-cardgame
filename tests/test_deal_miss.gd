@@ -2,6 +2,7 @@ extends GdUnitTestSuite
 
 const DealMissScript = preload("res://scripts/game_logic/deal_miss.gd")
 const CardScript = preload("res://scripts/game_logic/card.gd")
+const GameOptionsScript = preload("res://scripts/game_logic/game_options.gd")
 
 
 func test_mighty_scores_zero() -> void:
@@ -73,3 +74,50 @@ func test_hand_exactly_one_point_not_eligible() -> void:
 	hand.append(CardScript.new(CardScript.Suit.HEART, CardScript.Rank.JACK))
 	assert_float(DealMissScript.hand_score(hand)).is_equal(1.0)
 	assert_bool(DealMissScript.can_declare(hand)).is_false()
+
+
+# --- Options-based deal miss ---
+
+func test_custom_card_scores() -> void:
+	var opts = GameOptionsScript.new()
+	opts.deal_miss_ten_score = 1.0
+	opts.deal_miss_joker_score = 0.0
+	var ten = CardScript.new(CardScript.Suit.HEART, CardScript.Rank.TEN)
+	var joker_card = CardScript.create_joker()
+	assert_float(DealMissScript.card_score_with_options(ten, opts)).is_equal(1.0)
+	assert_float(DealMissScript.card_score_with_options(joker_card, opts)).is_equal(0.0)
+
+
+func test_custom_threshold_less_or_equal() -> void:
+	var opts = GameOptionsScript.new()
+	opts.deal_miss_threshold = 1.0
+	opts.deal_miss_threshold_type = GameOptionsScript.DealMissThreshold.LESS_OR_EQUAL
+	# hand with exactly 1.0 score should now qualify
+	var hand := []
+	for i in range(8):
+		hand.append(CardScript.new(CardScript.Suit.CLUB, CardScript.Rank.TWO + i))
+	hand.append(CardScript.new(CardScript.Suit.DIAMOND, CardScript.Rank.TWO))
+	hand.append(CardScript.new(CardScript.Suit.HEART, CardScript.Rank.JACK))
+	assert_float(DealMissScript.hand_score_with_options(hand, opts)).is_equal(1.0)
+	assert_bool(DealMissScript.can_declare_with_options(hand, opts)).is_true()
+
+
+func test_custom_higher_threshold() -> void:
+	var opts = GameOptionsScript.new()
+	opts.deal_miss_threshold = 3.0
+	opts.deal_miss_threshold_type = GameOptionsScript.DealMissThreshold.LESS_THAN
+	# hand with 2 point cards (score 2.0) should qualify
+	var hand := []
+	for i in range(8):
+		hand.append(CardScript.new(CardScript.Suit.CLUB, CardScript.Rank.TWO + i))
+	hand.append(CardScript.new(CardScript.Suit.HEART, CardScript.Rank.JACK))
+	hand.append(CardScript.new(CardScript.Suit.HEART, CardScript.Rank.QUEEN))
+	assert_float(DealMissScript.hand_score_with_options(hand, opts)).is_equal(2.0)
+	assert_bool(DealMissScript.can_declare_with_options(hand, opts)).is_true()
+
+
+func test_custom_mighty_score() -> void:
+	var opts = GameOptionsScript.new()
+	opts.deal_miss_mighty_score = 2.0
+	var sa = CardScript.new(CardScript.Suit.SPADE, CardScript.Rank.ACE)
+	assert_float(DealMissScript.card_score_with_options(sa, opts)).is_equal(2.0)

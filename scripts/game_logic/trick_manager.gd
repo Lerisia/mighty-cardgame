@@ -7,14 +7,18 @@ const DeclarerPhaseScript = preload("res://scripts/game_logic/declarer_phase.gd"
 const CardValidatorScript = preload("res://scripts/game_logic/card_validator.gd")
 const TrickJudgeScript = preload("res://scripts/game_logic/trick_judge.gd")
 const PlayStateScript = preload("res://scripts/game_logic/play_state.gd")
+const GameOptionsScript = preload("res://scripts/game_logic/game_options.gd")
 
 const TOTAL_TRICKS := 10
+const DEFAULT_JOKER_CALL_SUIT := CardScript.Suit.CLUB
+const DEFAULT_JOKER_CALL_RANK := CardScript.Rank.THREE
 
 var states: Array = []
 var player_count: int
 var declarer_index: int
 var giruda: int
 var friend_call: Dictionary
+var options: GameOptionsScript
 
 var trick_number: int = 0
 var current_turn: int
@@ -29,12 +33,13 @@ var friend_revealed: bool = false
 var face_down_pile: Array = []
 
 
-func _init(p_states: Array, p_declarer: int, p_giruda: int, p_friend_call: Dictionary) -> void:
+func _init(p_states: Array, p_declarer: int, p_giruda: int, p_friend_call: Dictionary, p_options: GameOptionsScript = null) -> void:
 	states = p_states
 	player_count = states.size()
 	declarer_index = p_declarer
 	giruda = p_giruda
 	friend_call = p_friend_call
+	options = p_options if p_options else GameOptionsScript.new()
 	current_turn = declarer_index
 
 	states[declarer_index].role = PlayStateScript.Role.DECLARER
@@ -66,10 +71,10 @@ func play_card(player_index: int, card) -> bool:
 	var is_lead := current_trick.size() == 0
 
 	if is_lead:
-		if not CardValidatorScript.can_lead(card, state.hand, giruda, trick_number):
+		if not CardValidatorScript.can_lead_with_options(card, state.hand, giruda, trick_number, options):
 			return false
 	else:
-		if not CardValidatorScript.can_follow(card, state.hand, lead_suit, giruda, joker_called):
+		if not CardValidatorScript.can_follow_with_options(card, state.hand, lead_suit, giruda, joker_called, options):
 			return false
 
 	state.play_card(card)
@@ -132,13 +137,13 @@ func _is_joker_call_card(card) -> bool:
 	if card.is_joker:
 		return false
 	if giruda == BiddingStateScript.Giruda.CLUB:
-		return card.suit == CardScript.Suit.SPADE and card.rank == CardScript.Rank.THREE
-	return card.suit == CardScript.Suit.CLUB and card.rank == CardScript.Rank.THREE
+		return card.suit == options.alter_joker_call_suit and card.rank == options.alter_joker_call_rank
+	return card.suit == DEFAULT_JOKER_CALL_SUIT and card.rank == DEFAULT_JOKER_CALL_RANK
 
 
 func _resolve_trick() -> void:
-	var winner: int = TrickJudgeScript.determine_winner(
-		current_trick, current_trick_players, lead_suit, giruda, trick_number, joker_called
+	var winner: int = TrickJudgeScript.determine_winner_with_options(
+		current_trick, current_trick_players, lead_suit, giruda, trick_number, joker_called, options
 	)
 	last_trick_winner = winner
 
@@ -153,6 +158,10 @@ func _resolve_trick() -> void:
 
 	if not friend_revealed and friend_call["type"] == DeclarerPhaseScript.FriendCallType.FIRST_TRICK_WINNER:
 		if trick_number == 0 and winner != declarer_index:
+			_reveal_friend(winner)
+
+	if not friend_revealed and options.allow_last_trick_friend:
+		if trick_number == TOTAL_TRICKS - 1 and winner != declarer_index:
 			_reveal_friend(winner)
 
 	trick_number += 1

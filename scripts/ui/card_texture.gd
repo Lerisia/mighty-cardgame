@@ -26,14 +26,35 @@ const RANK_MAP := {
 	CardScript.Rank.KING: 13,
 }
 
+static var _cache: Dictionary = {}
 
-static func get_path(card) -> String:
+
+static func get_texture(card) -> Texture2D:
+	var key: String = _get_key(card)
+	if _cache.has(key):
+		return _cache[key]
+	var tex: Texture2D = load(_get_path(card))
+	_cache[key] = tex
+	return tex
+
+
+static func get_back_texture() -> Texture2D:
+	if _cache.has("back"):
+		return _cache["back"]
+	var tex: Texture2D = load("res://assets/cards/back.png")
+	_cache["back"] = tex
+	return tex
+
+
+static func _get_key(card) -> String:
 	if card.is_joker:
-		return "res://assets/cards/4_1.svg"
+		return "joker"
+	return "%d_%d" % [card.suit, card.rank]
+
+
+static func _get_path(card) -> String:
+	if card.is_joker:
+		return "res://assets/cards/4_1.png"
 	var suit_num: int = SUIT_MAP[card.suit]
 	var rank_num: int = RANK_MAP[card.rank]
-	return "res://assets/cards/%d_%d.svg" % [suit_num, rank_num]
-
-
-static func get_back_path() -> String:
-	return "res://assets/cards/back.png"
+	return "res://assets/cards/%d_%d.png" % [suit_num, rank_num]

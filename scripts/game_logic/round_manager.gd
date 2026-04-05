@@ -8,12 +8,14 @@ const DeclarerPhaseScript = preload("res://scripts/game_logic/declarer_phase.gd"
 const TrickManagerScript = preload("res://scripts/game_logic/trick_manager.gd")
 const ScoreCalcScript = preload("res://scripts/game_logic/score_calculator.gd")
 const BiddingStateScript = preload("res://scripts/game_logic/bidding_state.gd")
+const GameOptionsScript = preload("res://scripts/game_logic/game_options.gd")
 
 enum Phase { DEAL, BIDDING, DECLARER, PLAY, SCORING, FINISHED }
 
 var players: Array
 var dealer_index: int
 var min_bid: int
+var options: GameOptionsScript
 var phase: int = Phase.DEAL
 
 var kitty: Array = []
@@ -29,10 +31,11 @@ var friend_call: Dictionary = {}
 var no_friend: bool = false
 
 
-func _init(p_players: Array, p_dealer: int, p_min_bid: int) -> void:
+func _init(p_players: Array, p_dealer: int, p_min_bid: int, p_options: GameOptionsScript = null) -> void:
 	players = p_players
 	dealer_index = p_dealer
 	min_bid = p_min_bid
+	options = p_options if p_options else GameOptionsScript.new()
 
 
 func do_deal() -> void:
@@ -47,7 +50,7 @@ func do_deal() -> void:
 	for hand in hands:
 		bidding_hands.append(hand.duplicate())
 
-	bidding_manager = BiddingManagerScript.new(players.size(), dealer_index, bidding_hands, min_bid)
+	bidding_manager = BiddingManagerScript.new(players.size(), dealer_index, bidding_hands, min_bid, options)
 	phase = Phase.BIDDING
 
 
@@ -61,7 +64,7 @@ func advance_from_bidding() -> bool:
 	bid = bidding_manager.states[declarer_index].bid_count
 	giruda = bidding_manager.states[declarer_index].bid_giruda
 
-	declarer_phase = DeclarerPhaseScript.new(hands[declarer_index], kitty, bid, giruda)
+	declarer_phase = DeclarerPhaseScript.new(hands[declarer_index], kitty, bid, giruda, options)
 	phase = Phase.DECLARER
 	return true
 
@@ -93,7 +96,7 @@ func advance_from_declarer() -> bool:
 		states.append(st)
 	states[declarer_index].set_discarded(declarer_phase.discarded)
 
-	trick_manager = TrickManagerScript.new(states, declarer_index, giruda, friend_call)
+	trick_manager = TrickManagerScript.new(states, declarer_index, giruda, friend_call, options)
 	trick_manager.face_down_pile.append_array(declarer_phase.discarded)
 
 	phase = Phase.PLAY
@@ -121,7 +124,7 @@ func calculate_scores() -> bool:
 	var ruling_points: int = 20 - opposition_points
 	var is_no_giruda: bool = giruda == BiddingStateScript.Giruda.NO_GIRUDA
 
-	var result: Dictionary = ScoreCalcScript.calculate(bid, ruling_points, min_bid, no_friend, is_no_giruda, false)
+	var result: Dictionary = ScoreCalcScript.calculate_with_options(bid, ruling_points, options.min_bid, no_friend, is_no_giruda, options)
 
 	for i in range(players.size()):
 		if i == declarer_index:

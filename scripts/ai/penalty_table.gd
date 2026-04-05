@@ -38,12 +38,13 @@ static func card_usage_penalty(card, giruda: int, used_cards: Array = [{}, {}, {
 		else:
 			return USE_SAFE_JOKER
 
-	if _is_jokercall(card, giruda) and they_have_joker:
-		return USE_EFFECTIVE_JOKERCALL
+	if _is_jokercall(card, giruda):
+		if they_have_joker:
+			return USE_EFFECTIVE_JOKERCALL
 
 	var power: int = _get_power_num(card)
 	var suit_idx: int = card.suit
-	var order := _count_higher_used(suit_idx, power, card.is_point_card, used_cards)
+	var order: int = _count_higher_used(suit_idx, power, card.is_point_card, used_cards)
 
 	if _is_giruda_suit(card, giruda):
 		if card.is_point_card:
@@ -75,14 +76,13 @@ static func attack_gain_penalty(gain_score: float) -> int:
 	return int(ATT_SCORE_PER_POINT * gain_score)
 
 
-# power: 2->1, 3->2, ..., 10->9, J->10, Q->11, K->12, A->13
 static func _get_power_num(card) -> int:
 	return card.rank - 1
 
 
 static func _count_higher_used(suit_idx: int, power: int, is_point: bool, used_cards: Array) -> int:
 	var top: int = 12 if is_point else 7
-	var order := 0
+	var order: int = 0
 	for i in range(top, power, -1):
 		if used_cards[suit_idx].has(i):
 			order += 1

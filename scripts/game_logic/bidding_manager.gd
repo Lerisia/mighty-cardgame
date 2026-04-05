@@ -3,6 +3,7 @@ extends RefCounted
 
 const BiddingStateScript = preload("res://scripts/game_logic/bidding_state.gd")
 const DealMissScript = preload("res://scripts/game_logic/deal_miss.gd")
+const GameOptionsScript = preload("res://scripts/game_logic/game_options.gd")
 
 var player_count: int
 var states: Array = []
@@ -15,13 +16,15 @@ var highest_bidder: int = -1
 var minimum_bid: int
 var deal_miss_declared: bool = false
 var deal_miss_player: int = -1
+var options: GameOptionsScript
 
 
-func _init(p_player_count: int, dealer_index: int, p_hands: Array, p_minimum_bid: int = 13) -> void:
+func _init(p_player_count: int, dealer_index: int, p_hands: Array, p_minimum_bid: int = 13, p_options: GameOptionsScript = null) -> void:
 	player_count = p_player_count
 	current_turn = dealer_index
 	hands = p_hands
-	minimum_bid = p_minimum_bid
+	options = p_options if p_options else GameOptionsScript.new()
+	minimum_bid = options.min_bid if p_options else p_minimum_bid
 	for i in range(player_count):
 		states.append(BiddingStateScript.new())
 		has_acted.append(false)
@@ -60,7 +63,7 @@ func pass_turn(player_index: int) -> bool:
 func can_deal_miss(player_index: int) -> bool:
 	if has_acted[player_index]:
 		return false
-	return DealMissScript.can_declare(hands[player_index])
+	return DealMissScript.can_declare_with_options(hands[player_index], options)
 
 
 func declare_deal_miss(player_index: int) -> bool:

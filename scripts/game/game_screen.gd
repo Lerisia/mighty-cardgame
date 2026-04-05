@@ -193,7 +193,7 @@ func _update_center() -> void:
 			label.text = "P%d" % tm.current_trick_players[j]
 			label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			var tex_rect := TextureRect.new()
-			tex_rect.texture = load(CardTextureScript.get_path(tm.current_trick[j]))
+			tex_rect.texture = CardTextureScript.get_texture(tm.current_trick[j])
 			tex_rect.custom_minimum_size = Vector2(50, 70)
 			tex_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			tex_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -217,8 +217,7 @@ func _update_my_hand() -> void:
 
 	for card in hand:
 		var btn := TextureButton.new()
-		var tex = load(CardTextureScript.get_path(card))
-		btn.texture_normal = tex
+		btn.texture_normal = CardTextureScript.get_texture(card)
 		btn.custom_minimum_size = Vector2(60, 84)
 		btn.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 		btn.ignore_texture_size = true

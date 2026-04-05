@@ -3,6 +3,7 @@ extends GdUnitTestSuite
 const DeclarerPhaseScript = preload("res://scripts/game_logic/declarer_phase.gd")
 const BiddingStateScript = preload("res://scripts/game_logic/bidding_state.gd")
 const CardScript = preload("res://scripts/game_logic/card.gd")
+const GameOptionsScript = preload("res://scripts/game_logic/game_options.gd")
 
 
 func _make_phase(bid: int = 13, giruda: int = BiddingStateScript.Giruda.SPADE) -> RefCounted:
@@ -160,6 +161,56 @@ func test_finalize_wrong_count_rejected() -> void:
 	var friend_call := {"type": DeclarerPhaseScript.FriendCallType.NO_FRIEND}
 	assert_bool(phase.finalize(to_discard, friend_call)).is_false()
 
+
+# --- Options: giruda change restrictions ---
+
+func _make_phase_with_options(bid: int, giruda: int, opts: GameOptionsScript) -> RefCounted:
+	var hand := []
+	for i in range(10):
+		hand.append(CardScript.new(CardScript.Suit.CLUB, CardScript.Rank.TWO + i))
+	var kitty := [
+		CardScript.new(CardScript.Suit.HEART, CardScript.Rank.TWO),
+		CardScript.new(CardScript.Suit.HEART, CardScript.Rank.THREE),
+		CardScript.new(CardScript.Suit.HEART, CardScript.Rank.FOUR),
+	]
+	return DeclarerPhaseScript.new(hand, kitty, bid, giruda, opts)
+
+
+func test_disallow_giruda_change_before_kitty() -> void:
+	var opts = GameOptionsScript.new()
+	opts.allow_giruda_change_before_kitty = false
+	var phase = _make_phase_with_options(13, BiddingStateScript.Giruda.SPADE, opts)
+	assert_bool(phase.change_giruda_first(BiddingStateScript.Giruda.HEART, 14)).is_false()
+
+
+func test_disallow_giruda_change_after_kitty() -> void:
+	var opts = GameOptionsScript.new()
+	opts.allow_giruda_change_after_kitty = false
+	var phase = _make_phase_with_options(13, BiddingStateScript.Giruda.SPADE, opts)
+	phase.skip_first_change()
+	phase.reveal_kitty()
+	assert_bool(phase.change_giruda_second(BiddingStateScript.Giruda.HEART, 15)).is_false()
+
+
+func test_disallow_player_friend() -> void:
+	var opts = GameOptionsScript.new()
+	opts.allow_player_friend = false
+	var phase = _make_phase_with_options(13, BiddingStateScript.Giruda.SPADE, opts)
+	phase.skip_first_change()
+	phase.reveal_kitty()
+	var to_discard := [phase.hand[0], phase.hand[1], phase.hand[2]]
+	var friend_call := {"type": DeclarerPhaseScript.FriendCallType.PLAYER, "player_index": 3}
+	assert_bool(phase.finalize(to_discard, friend_call)).is_false()
+
+
+func test_allow_player_friend_default() -> void:
+	var opts = GameOptionsScript.new()
+	var phase = _make_phase_with_options(13, BiddingStateScript.Giruda.SPADE, opts)
+	phase.skip_first_change()
+	phase.reveal_kitty()
+	var to_discard := [phase.hand[0], phase.hand[1], phase.hand[2]]
+	var friend_call := {"type": DeclarerPhaseScript.FriendCallType.PLAYER, "player_index": 3}
+	assert_bool(phase.finalize(to_discard, friend_call)).is_true()
 
 func test_finalize_requires_kitty_revealed() -> void:
 	var phase = _make_phase()

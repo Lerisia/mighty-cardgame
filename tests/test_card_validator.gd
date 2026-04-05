@@ -3,6 +3,7 @@ extends GdUnitTestSuite
 const CardValidatorScript = preload("res://scripts/game_logic/card_validator.gd")
 const CardScript = preload("res://scripts/game_logic/card.gd")
 const BiddingStateScript = preload("res://scripts/game_logic/bidding_state.gd")
+const GameOptionsScript = preload("res://scripts/game_logic/game_options.gd")
 
 var giruda: int
 var SA: RefCounted
@@ -149,3 +150,38 @@ func test_joker_call_mighty_can_substitute() -> void:
 	var hand := [joker, DA]
 	var lead_suit = CardScript.Suit.CLUB
 	assert_bool(CardValidatorScript.can_follow(DA, hand, lead_suit, giruda, true)).is_true()
+
+
+# --- Custom alter mighty ---
+
+func test_default_mighty_spade_ace() -> void:
+	assert_bool(CardValidatorScript.is_mighty(SA, BiddingStateScript.Giruda.HEART)).is_true()
+
+
+func test_default_alter_mighty_diamond_ace_when_spade_giruda() -> void:
+	assert_bool(CardValidatorScript.is_mighty(DA, BiddingStateScript.Giruda.SPADE)).is_true()
+	assert_bool(CardValidatorScript.is_mighty(SA, BiddingStateScript.Giruda.SPADE)).is_false()
+
+
+func test_custom_alter_mighty() -> void:
+	var opts = GameOptionsScript.new()
+	opts.alter_mighty_suit = CardScript.Suit.HEART
+	opts.alter_mighty_rank = CardScript.Rank.KING
+	var HK = CardScript.new(CardScript.Suit.HEART, CardScript.Rank.KING)
+	# When spade giruda, default alter mighty (DA) should no longer be mighty
+	assert_bool(CardValidatorScript.is_mighty_with_options(DA, BiddingStateScript.Giruda.SPADE, opts)).is_false()
+	# HK should be mighty instead
+	assert_bool(CardValidatorScript.is_mighty_with_options(HK, BiddingStateScript.Giruda.SPADE, opts)).is_true()
+	# SA still mighty for non-spade giruda
+	assert_bool(CardValidatorScript.is_mighty_with_options(SA, BiddingStateScript.Giruda.HEART, opts)).is_true()
+
+
+func test_custom_alter_mighty_when_alter_is_giruda() -> void:
+	# alter mighty is Heart King, giruda is Heart => alter mighty activates
+	var opts = GameOptionsScript.new()
+	opts.alter_mighty_suit = CardScript.Suit.DIAMOND
+	opts.alter_mighty_rank = CardScript.Rank.KING
+	var DK = CardScript.new(CardScript.Suit.DIAMOND, CardScript.Rank.KING)
+	# Spade A is default mighty, but giruda is spade => use alter
+	assert_bool(CardValidatorScript.is_mighty_with_options(SA, BiddingStateScript.Giruda.SPADE, opts)).is_false()
+	assert_bool(CardValidatorScript.is_mighty_with_options(DK, BiddingStateScript.Giruda.SPADE, opts)).is_true()

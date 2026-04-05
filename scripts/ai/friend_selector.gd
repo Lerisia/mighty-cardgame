@@ -7,49 +7,56 @@ const CardValidatorScript = preload("res://scripts/game_logic/card_validator.gd"
 const DeclarerPhaseScript = preload("res://scripts/game_logic/declarer_phase.gd")
 
 
-static func select(hand: Array, giruda: int) -> Dictionary:
-	var candidates: Array = _build_candidates(hand, giruda)
+static func select(hand: Array, giruda: int, joker_friend_allowed: bool = true) -> Dictionary:
+	var mighty = _get_mighty(giruda)
+	var giruda_suit: int = _giruda_to_suit(giruda)
+	var found_card = null
 
-	for card in candidates:
-		if not _hand_contains(hand, card):
-			return {
-				"type": DeclarerPhaseScript.FriendCallType.CARD,
-				"card": card,
-			}
+	while true:
+		if not _hand_contains(hand, mighty):
+			found_card = mighty
+			break
+
+		if joker_friend_allowed:
+			var joker = CardScript.create_joker()
+			if not _hand_contains(hand, joker):
+				found_card = joker
+				break
+
+		var kiruda_ace = CardScript.new(giruda_suit, CardScript.Rank.ACE)
+		if not _hand_contains(hand, kiruda_ace):
+			found_card = kiruda_ace
+			break
+
+		var kiruda_king = CardScript.new(giruda_suit, CardScript.Rank.KING)
+		if not _hand_contains(hand, kiruda_king):
+			found_card = kiruda_king
+			break
+
+		var found_other_ace: bool = false
+		for suit in [CardScript.Suit.SPADE, CardScript.Suit.DIAMOND, CardScript.Suit.HEART, CardScript.Suit.CLUB]:
+			var ace = CardScript.new(suit, CardScript.Rank.ACE)
+			if not _hand_contains(hand, ace):
+				found_card = ace
+				found_other_ace = true
+				break
+		if found_other_ace:
+			break
+
+		var kiruda_queen = CardScript.new(giruda_suit, CardScript.Rank.QUEEN)
+		if not _hand_contains(hand, kiruda_queen):
+			found_card = kiruda_queen
+			break
+
+		break
+
+	if found_card != null:
+		return {
+			"type": DeclarerPhaseScript.FriendCallType.CARD,
+			"card": found_card,
+		}
 
 	return {"type": DeclarerPhaseScript.FriendCallType.NO_FRIEND}
-
-
-static func _build_candidates(hand: Array, giruda: int) -> Array:
-	var candidates := []
-
-	# 1. Mighty
-	candidates.append(_get_mighty(giruda))
-
-	# 2. Joker
-	candidates.append(CardScript.create_joker())
-
-	# 3. Giruda Ace
-	var giruda_suit: int = _giruda_to_suit(giruda)
-	if giruda != BiddingStateScript.Giruda.NO_GIRUDA:
-		candidates.append(CardScript.new(giruda_suit, CardScript.Rank.ACE))
-
-	# 4. Giruda King
-	if giruda != BiddingStateScript.Giruda.NO_GIRUDA:
-		candidates.append(CardScript.new(giruda_suit, CardScript.Rank.KING))
-
-	# 5. Other Aces
-	for suit in [CardScript.Suit.SPADE, CardScript.Suit.DIAMOND, CardScript.Suit.HEART, CardScript.Suit.CLUB]:
-		var ace = CardScript.new(suit, CardScript.Rank.ACE)
-		if not CardValidatorScript.is_mighty(ace, giruda):
-			if giruda == BiddingStateScript.Giruda.NO_GIRUDA or suit != giruda_suit:
-				candidates.append(ace)
-
-	# 6. Giruda Queen
-	if giruda != BiddingStateScript.Giruda.NO_GIRUDA:
-		candidates.append(CardScript.new(giruda_suit, CardScript.Rank.QUEEN))
-
-	return candidates
 
 
 static func _hand_contains(hand: Array, target) -> bool:

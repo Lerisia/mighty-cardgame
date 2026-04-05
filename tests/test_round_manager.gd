@@ -5,6 +5,7 @@ const PlayerScript = preload("res://scripts/game_logic/player.gd")
 const BiddingStateScript = preload("res://scripts/game_logic/bidding_state.gd")
 const DeclarerPhaseScript = preload("res://scripts/game_logic/declarer_phase.gd")
 const CardScript = preload("res://scripts/game_logic/card.gd")
+const GameOptionsScript = preload("res://scripts/game_logic/game_options.gd")
 
 
 func _make_players() -> Array:
@@ -76,3 +77,19 @@ func test_phase_cannot_skip() -> void:
 	var rm = _make_round()
 	assert_bool(rm.advance_from_bidding()).is_false()
 	assert_bool(rm.advance_from_declarer()).is_false()
+
+
+# --- Options passed through ---
+
+func test_options_passed_to_bidding_manager() -> void:
+	var opts = GameOptionsScript.new()
+	opts.min_bid = 11
+	var rm = RoundManagerScript.new(_make_players(), 0, 13, opts)
+	rm.do_deal()
+	assert_int(rm.bidding_manager.minimum_bid).is_equal(11)
+
+
+func test_options_default_when_not_provided() -> void:
+	var rm = _make_round()
+	rm.do_deal()
+	assert_int(rm.bidding_manager.minimum_bid).is_equal(13)

@@ -3,6 +3,7 @@ extends GdUnitTestSuite
 const BiddingManagerScript = preload("res://scripts/game_logic/bidding_manager.gd")
 const BiddingStateScript = preload("res://scripts/game_logic/bidding_state.gd")
 const CardScript = preload("res://scripts/game_logic/card.gd")
+const GameOptionsScript = preload("res://scripts/game_logic/game_options.gd")
 
 var manager: RefCounted
 
@@ -166,3 +167,37 @@ func test_declare_deal_miss() -> void:
 	assert_bool(mgr.declare_deal_miss(0)).is_true()
 	assert_bool(mgr.deal_miss_declared).is_true()
 	assert_int(mgr.deal_miss_player).is_equal(0)
+
+
+# --- Options-based bidding ---
+
+func test_custom_min_bid_from_options() -> void:
+	var opts = GameOptionsScript.new()
+	opts.min_bid = 11
+	var hands := []
+	for i in range(5):
+		var hand := []
+		for j in range(10):
+			hand.append(CardScript.new(CardScript.Suit.SPADE, CardScript.Rank.TWO + j))
+		hands.append(hand)
+	var mgr = BiddingManagerScript.new(5, 0, hands, 13, opts)
+	assert_int(mgr.minimum_bid).is_equal(11)
+	assert_bool(mgr.place_bid(0, 11, BiddingStateScript.Giruda.SPADE)).is_true()
+
+
+func test_deal_miss_with_custom_options() -> void:
+	var opts = GameOptionsScript.new()
+	opts.deal_miss_threshold = 2.0
+	opts.deal_miss_threshold_type = GameOptionsScript.DealMissThreshold.LESS_OR_EQUAL
+	# hand with score 2.0 should now qualify
+	var hands := []
+	var hand := []
+	for i in range(8):
+		hand.append(CardScript.new(CardScript.Suit.CLUB, CardScript.Rank.TWO + i))
+	hand.append(CardScript.new(CardScript.Suit.HEART, CardScript.Rank.JACK))
+	hand.append(CardScript.new(CardScript.Suit.HEART, CardScript.Rank.QUEEN))
+	hands.append(hand)
+	for i in range(4):
+		hands.append(_make_strong_hand())
+	var mgr = BiddingManagerScript.new(5, 0, hands, 13, opts)
+	assert_bool(mgr.can_deal_miss(0)).is_true()

@@ -19,44 +19,47 @@ const EMPTY_WEIGHT := 30
 const MIGHTY_WEIGHT := 250
 const JOKER_WEIGHT := 250
 const JOKERCALL_WEIGHT := 100
+const FRIEND_WEIGHT := 2000
 
 
 static func calc_pride(giruda: int, hand: Array) -> int:
-	var pride := 0
-	var has_mighty := false
-	var has_joker := false
-	var has_jokercall := false
+	var pride: int = 0
+	var has_mighty: bool = false
+	var has_joker: bool = false
+
+	var mighty_card = _get_mighty(giruda)
+	var jokercall_card = _get_jokercall(giruda)
 
 	for card in hand:
-		if CardValidatorScript.is_mighty(card, giruda):
+		if _card_equals(card, mighty_card):
 			has_mighty = true
 		if card.is_joker:
 			has_joker = true
-		if _is_jokercall(card, giruda):
-			has_jokercall = true
 
 	if has_mighty:
 		pride += MIGHTY_WEIGHT
 	if has_joker:
 		pride += JOKER_WEIGHT
-	if not has_joker and has_jokercall and not has_mighty:
+
+	if not has_joker and _hand_has_card(hand, jokercall_card) and not has_mighty:
 		pride += JOKERCALL_WEIGHT
 
 	var giruda_suit: int = _giruda_to_suit(giruda)
 
 	if giruda != BiddingStateScript.Giruda.NO_GIRUDA:
-		var kiruda_count := _count_suit(hand, giruda_suit)
-		var ratio: int = 100 * kiruda_count / hand.size()
+		var kiruda_count: int = _count_suit(hand, giruda_suit)
+		var all_count: int = hand.size()
+		var ratio: int = 100 * kiruda_count / all_count
 
 		if ratio >= 60:
 			pride += KIRUDA_COUNT_WEIGHT
 		elif ratio >= 40:
 			pride += (ratio - 40) * KIRUDA_COUNT_WEIGHT / 20
 
-		if ratio >= 40:
+		if ratio >= 40 and _get_kirudable(hand) == giruda_suit:
 			pride += BIAS
 
-		var d := 0
+		var d: int = 0
 		if not _has_card(hand, giruda_suit, CardScript.Rank.ACE):
 			pride -= KIRUDA_A_WEIGHT
 		if not _has_card(hand, giruda_suit, CardScript.Rank.KING):
@@ -69,7 +72,46 @@ static func calc_pride(giruda: int, hand: Array) -> int:
 			d += KIRUDA_J_WEIGHT
 			pride -= d
 
-	var ndem := _calc_non_kiruda_demerit(hand, giruda)
+	var refined: Array = _refine(hand, giruda)
+
+	var ndem: int = 0
+	var suit_empty: Array = [true, true, true, true]
+
+	for card in refined:
+		if card.is_joker:
+			continue
+		if _card_equals(card, jokercall_card) and not has_joker and not has_mighty:
+			continue
+		if _card_equals(card, mighty_card):
+			continue
+		if giruda != BiddingStateScript.Giruda.NO_GIRUDA and card.suit == giruda_suit:
+			continue
+		if card.rank == CardScript.Rank.ACE:
+			continue
+		if card.rank == CardScript.Rank.KING and card.suit == mighty_card.suit:
+			continue
+
+		suit_empty[card.suit] = false
+
+		var power: int = card.rank - 1
+		var d: int = 13 - power
+		if d == 1:
+			ndem -= ETC_K_WEIGHT
+		elif d == 2:
+			ndem -= ETC_Q_WEIGHT
+		elif d == 3:
+			ndem -= ETC_J_WEIGHT
+		else:
+			ndem -= ETC_10_WEIGHT - 4 + d
+
+	for s in range(4):
+		if suit_empty[s]:
+			ndem += EMPTY_WEIGHT
+
+	if ndem < -2 * (ETC_10_WEIGHT + 12):
+		ndem += 2 * (ETC_10_WEIGHT + 12)
+	elif ndem < 0:
+		ndem = 0
 
 	if giruda != BiddingStateScript.Giruda.NO_GIRUDA:
 		pride += ndem
@@ -103,10 +145,10 @@ static func pride_to_min_score(pride: int, pride_fac: int, min_bid: int) -> int:
 
 
 static func evaluate_best_giruda(hand: Array) -> Dictionary:
-	var best_pride := -999999
+	var best_pride: int = -999999
 	var best_giruda: int = BiddingStateScript.Giruda.NONE
 
-	var giruda_options := [
+	var giruda_options: Array = [
 		BiddingStateScript.Giruda.NO_GIRUDA,
 		BiddingStateScript.Giruda.SPADE,
 		BiddingStateScript.Giruda.DIAMOND,
@@ -123,53 +165,175 @@ static func evaluate_best_giruda(hand: Array) -> Dictionary:
 	return {"giruda": best_giruda, "pride": best_pride}
 
 
-static func _calc_non_kiruda_demerit(hand: Array, giruda: int) -> int:
+static func evaluate_best_giruda_13(hand: Array) -> Dictionary:
+	var best_pride: int = -999999
+	var best_giruda: int = BiddingStateScript.Giruda.NONE
+	var best_drop: Array = [0, 0, 0]
+
+	for giruda in range(0, 5):
+		var giruda_enum: int
+		match giruda:
+			0: giruda_enum = BiddingStateScript.Giruda.NO_GIRUDA
+			1: giruda_enum = BiddingStateScript.Giruda.SPADE
+			2: giruda_enum = BiddingStateScript.Giruda.DIAMOND
+			3: giruda_enum = BiddingStateScript.Giruda.HEART
+			4: giruda_enum = BiddingStateScript.Giruda.CLUB
+			_: continue
+
+		for i in range(0, 11):
+			if not _is_useless(hand[i], giruda_enum):
+				continue
+			for j in range(i + 1, 12):
+				if not _is_useless(hand[j], giruda_enum):
+					continue
+				for k in range(j + 1, 13):
+					if not _is_useless(hand[k], giruda_enum):
+						continue
+
+					var sub_hand: Array = []
+					for r in range(13):
+						if r == i or r == j or r == k:
+							continue
+						sub_hand.append(hand[r])
+
+					var pride: int = calc_pride(giruda_enum, sub_hand)
+					if pride > best_pride:
+						best_pride = pride
+						best_giruda = giruda_enum
+						best_drop = [i, j, k]
+
+	return {"giruda": best_giruda, "pride": best_pride, "drop": best_drop}
+
+
+static func _is_useless(card, giruda: int) -> bool:
+	var mighty = _get_mighty(giruda)
+	if _card_equals(card, mighty):
+		return false
+	if card.is_joker:
+		return false
+	if card.rank == CardScript.Rank.ACE:
+		return false
 	var giruda_suit: int = _giruda_to_suit(giruda)
-	var ndem := 0
-	var suit_empty := [true, true, true, true]
+	if giruda != BiddingStateScript.Giruda.NO_GIRUDA and card.suit == giruda_suit:
+		return false
+	if card.rank == CardScript.Rank.KING:
+		return false
+	return true
 
-	for card in hand:
-		if card.is_joker:
-			continue
-		if CardValidatorScript.is_mighty(card, giruda):
-			continue
-		if giruda != BiddingStateScript.Giruda.NO_GIRUDA and card.suit == giruda_suit:
-			continue
-		if card.rank == CardScript.Rank.ACE:
-			continue
-		if _is_jokercall(card, giruda) and not _hand_has_joker(hand) and not _hand_has_mighty(hand, giruda):
-			continue
-		if card.rank == CardScript.Rank.KING and CardValidatorScript.is_mighty(CardScript.new(card.suit, CardScript.Rank.ACE), giruda):
+
+static func _get_kirudable(hand: Array) -> int:
+	var max_suit: int = -1
+	var max_sum: int = 0
+
+	for suit in [CardScript.Suit.SPADE, CardScript.Suit.DIAMOND, CardScript.Suit.HEART, CardScript.Suit.CLUB]:
+		var s: int = 0
+		for card in hand:
+			if not card.is_joker and card.suit == suit:
+				s += card.rank - 1
+		if s > max_sum:
+			max_sum = s
+			max_suit = suit
+	return max_suit
+
+
+static func _refine(hand: Array, giruda: int) -> Array:
+	var sorted_hand: Array = hand.duplicate()
+	var giruda_suit: int = _giruda_to_suit(giruda)
+	sorted_hand.sort_custom(func(a, b): return _sort_comp(a, b, giruda_suit))
+
+	var result: Array = sorted_hand.duplicate()
+
+	var cur_shape: int = -1
+	var cur_score: bool = false
+	var cur_pnum: int = -1
+	var before_card = null
+
+	var i: int = result.size() - 1
+	while i >= 0:
+		var c = result[i]
+
+		if c.is_joker:
+			i -= 1
 			continue
 
-		suit_empty[card.suit] = false
+		var c_shape: int = c.suit
+		var c_score: bool = c.is_point_card
+		var c_pnum: int = c.rank - 1
 
-		var power: int = card.rank - 1
-		var d: int = 13 - power
-		if d == 1:
-			ndem -= ETC_K_WEIGHT
-		elif d == 2:
-			ndem -= ETC_Q_WEIGHT
-		elif d == 3:
-			ndem -= ETC_J_WEIGHT
+		if cur_shape != c_shape:
+			cur_shape = c_shape
+			cur_score = c_score
+			cur_pnum = c_pnum
+			before_card = c
+		elif cur_score != c_score:
+			cur_score = c_score
+			cur_pnum = c_pnum
+			before_card = c
+		elif cur_pnum - 1 != c_pnum:
+			cur_pnum = c_pnum
+			before_card = c
 		else:
-			ndem -= ETC_10_WEIGHT - 4 + d
+			result[i] = before_card
+			cur_pnum = c_pnum
 
-	for i in range(4):
-		if suit_empty[i]:
-			ndem += EMPTY_WEIGHT
+		i -= 1
 
-	var max_friend_assist: int = 2 * (ETC_10_WEIGHT + 12)
-	if ndem < -max_friend_assist:
-		ndem += max_friend_assist
-	elif ndem < 0:
-		ndem = 0
+	return result
 
-	return ndem
+
+static func _sort_comp(a, b, giruda_suit: int) -> bool:
+	if a.is_joker and b.is_joker:
+		return false
+	if a.is_joker:
+		return false
+	if b.is_joker:
+		return true
+
+	var a_is_kiruda: bool = (giruda_suit >= 0 and a.suit == giruda_suit)
+	var b_is_kiruda: bool = (giruda_suit >= 0 and b.suit == giruda_suit)
+
+	if a_is_kiruda and not b_is_kiruda:
+		return false
+	if not a_is_kiruda and b_is_kiruda:
+		return true
+
+	if a.suit != b.suit:
+		return a.suit < b.suit
+
+	var a_power: int = a.rank - 1
+	var b_power: int = b.rank - 1
+	return a_power < b_power
+
+
+static func _get_mighty(giruda: int):
+	if giruda == BiddingStateScript.Giruda.SPADE:
+		return CardScript.new(CardScript.Suit.DIAMOND, CardScript.Rank.ACE)
+	return CardScript.new(CardScript.Suit.SPADE, CardScript.Rank.ACE)
+
+
+static func _get_jokercall(giruda: int):
+	if giruda == BiddingStateScript.Giruda.CLUB:
+		return CardScript.new(CardScript.Suit.SPADE, CardScript.Rank.THREE)
+	return CardScript.new(CardScript.Suit.CLUB, CardScript.Rank.THREE)
+
+
+static func _card_equals(a, b) -> bool:
+	if a.is_joker and b.is_joker:
+		return true
+	if a.is_joker or b.is_joker:
+		return false
+	return a.suit == b.suit and a.rank == b.rank
+
+
+static func _hand_has_card(hand: Array, target) -> bool:
+	for card in hand:
+		if _card_equals(card, target):
+			return true
+	return false
 
 
 static func _count_suit(hand: Array, suit: int) -> int:
-	var count := 0
+	var count: int = 0
 	for card in hand:
 		if not card.is_joker and card.suit == suit:
 			count += 1
@@ -181,28 +345,6 @@ static func _has_card(hand: Array, suit: int, rank: int) -> bool:
 		if not card.is_joker and card.suit == suit and card.rank == rank:
 			return true
 	return false
-
-
-static func _hand_has_joker(hand: Array) -> bool:
-	for card in hand:
-		if card.is_joker:
-			return true
-	return false
-
-
-static func _hand_has_mighty(hand: Array, giruda: int) -> bool:
-	for card in hand:
-		if CardValidatorScript.is_mighty(card, giruda):
-			return true
-	return false
-
-
-static func _is_jokercall(card, giruda: int) -> bool:
-	if card.is_joker:
-		return false
-	if giruda == BiddingStateScript.Giruda.CLUB:
-		return card.suit == CardScript.Suit.SPADE and card.rank == CardScript.Rank.THREE
-	return card.suit == CardScript.Suit.CLUB and card.rank == CardScript.Rank.THREE
 
 
 static func _giruda_to_suit(giruda: int) -> int:

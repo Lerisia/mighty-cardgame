@@ -14,7 +14,11 @@ var pride_fac: int = 5
 
 
 func decide_bid(hand: Array, min_bid: int, current_highest: int, current_giruda: int) -> Dictionary:
-	var eval_result: Dictionary = PrideTableScript.evaluate_best_giruda(hand)
+	var eval_result: Dictionary
+	if hand.size() == 13:
+		eval_result = PrideTableScript.evaluate_best_giruda_13(hand)
+	else:
+		eval_result = PrideTableScript.evaluate_best_giruda(hand)
 	var target: int = PrideTableScript.pride_to_min_score(eval_result["pride"], pride_fac, min_bid)
 
 	if target <= current_highest:
@@ -43,13 +47,13 @@ func decide_giruda_change(hand: Array, bid: int, giruda: int, raise_amount: int)
 	return {"change": false}
 
 
-func decide_friend(hand: Array, giruda: int) -> Dictionary:
-	return FriendSelectorScript.select(hand, giruda)
+func decide_friend(hand: Array, giruda: int, joker_friend_allowed: bool = true) -> Dictionary:
+	return FriendSelectorScript.select(hand, giruda, joker_friend_allowed)
 
 
 func decide_card_lead(hand: Array, giruda: int, trick_number: int, used_cards: Array) -> Dictionary:
 	var card = CardSelectorScript.select_lead(hand, giruda, trick_number, used_cards)
-	var result := {"card": card}
+	var result: Dictionary = {"card": card}
 	if card.is_joker:
 		result["joker_suit"] = _pick_joker_lead_suit(hand, giruda)
 	return result
@@ -76,14 +80,14 @@ func decide_discard(hand: Array, giruda: int) -> Array:
 		scored.append({"index": i, "penalty": penalty})
 	scored.sort_custom(func(a, b): return a["penalty"] < b["penalty"])
 
-	var discard := []
+	var discard: Array = []
 	for i in range(mini(3, scored.size())):
 		discard.append(hand[scored[i]["index"]])
 	return discard
 
 
 func _pick_joker_lead_suit(hand: Array, giruda: int) -> int:
-	var suit_counts := [0, 0, 0, 0]
+	var suit_counts: Array = [0, 0, 0, 0]
 	var giruda_suit: int = _giruda_to_suit(giruda)
 	for card in hand:
 		if card.is_joker:
@@ -94,8 +98,8 @@ func _pick_joker_lead_suit(hand: Array, giruda: int) -> int:
 			continue
 		suit_counts[card.suit] += 1
 
-	var best_suit := 0
-	var best_count := -1
+	var best_suit: int = 0
+	var best_count: int = -1
 	for i in range(4):
 		if suit_counts[i] > best_count:
 			best_count = suit_counts[i]
