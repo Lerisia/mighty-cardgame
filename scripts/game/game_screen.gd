@@ -10,6 +10,7 @@ const BiddingManagerScript = preload("res://scripts/game_logic/bidding_manager.g
 const BotManagerScript = preload("res://scripts/ai/bot_manager.gd")
 const BSWStrategyScript = preload("res://scripts/ai/bsw_strategy.gd")
 const XiaoStrategyScript = preload("res://scripts/ai/xiao_strategy.gd")
+const DeclarerPhaseScript = preload("res://scripts/game_logic/declarer_phase.gd")
 
 const CARD_BORDER := 1.0
 const CARD_BORDER_COLOR := Color(0.15, 0.15, 0.15, 1.0)
@@ -473,6 +474,130 @@ func _start_declarer_phase() -> void:
 	await _move_kitty_to_declarer(declarer)
 	await get_tree().create_timer(0.5).timeout
 	_hide_announcement()
+
+	if declarer != 0:
+		await _bot_declarer_phase(declarer, giruda, bid)
+	else:
+		pass # TODO: player declarer phase
+
+
+func _bot_declarer_phase(declarer: int, giruda: int, bid: int) -> void:
+	await _show_announcement_stay("고민 중...")
+	await get_tree().create_timer(2.0).timeout
+
+	var dp = DeclarerPhaseScript.new(hands[declarer], kitty, bid, giruda)
+	var bot_idx: int = declarer - 1
+	bots[bot_idx].do_declarer_phase(dp)
+
+	var final_giruda: int = dp.giruda
+	var final_bid: int = dp.bid
+
+	_hide_announcement()
+	await get_tree().create_timer(0.3).timeout
+
+	var friend_type: int = dp.friend_call_type
+	var friend_text := ""
+	var friend_card = null
+
+	match friend_type:
+		DeclarerPhaseScript.FriendCallType.CARD:
+			friend_card = dp.friend_call_card
+			if friend_card.is_joker:
+				friend_text = "조커 프렌드"
+			else:
+				var card_str: String = "%s %s" % [SUIT_DISPLAY.get(_card_suit_to_giruda(friend_card.suit), "?"), _rank_name(friend_card.rank)]
+				friend_text = "%s 프렌드" % card_str
+		DeclarerPhaseScript.FriendCallType.FIRST_TRICK_WINNER:
+			friend_text = "초구 프렌드"
+		DeclarerPhaseScript.FriendCallType.NO_FRIEND:
+			friend_text = "노프렌드"
+		DeclarerPhaseScript.FriendCallType.PLAYER:
+			friend_text = "%s 프렌드" % PLAYER_NAMES[dp.friend_call_player]
+
+	var vh: float = get_viewport_rect().size.y
+	var font_size: int = int(vh / 18.0)
+	var small_font: int = int(vh / 22.0)
+
+	var panel := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0, 0, 0, 0.75)
+	style.set_corner_radius_all(10)
+	style.set_content_margin_all(20)
+	panel.add_theme_stylebox_override("panel", style)
+	panel.z_index = 110
+
+	var vbox := VBoxContainer.new()
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", 10)
+
+	var bid_label: Label = _create_label("공약: %s %d" % [SUIT_DISPLAY.get(final_giruda, "?"), final_bid], font_size, Color.WHITE)
+	bid_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(bid_label)
+
+	var sep := HSeparator.new()
+	vbox.add_child(sep)
+
+	var friend_title: Label = _create_label("프렌드", small_font, Color(0.8, 0.8, 0.8))
+	friend_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(friend_title)
+
+	if friend_card and not friend_card.is_joker:
+		var card_size: Vector2 = CardUtilScript.get_card_size(get_viewport())
+		var card_img := TextureRect.new()
+		card_img.texture = CardTextureScript.get_texture(friend_card)
+		card_img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		card_img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		var img_container := CenterContainer.new()
+		img_container.add_child(card_img)
+		vbox.add_child(img_container)
+		panel.add_child(vbox)
+		add_child(panel)
+		await get_tree().process_frame
+		card_img.size = card_size
+	elif friend_card and friend_card.is_joker:
+		var card_size: Vector2 = CardUtilScript.get_card_size(get_viewport())
+		var card_img := TextureRect.new()
+		card_img.texture = CardTextureScript.get_texture(friend_card)
+		card_img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		var img_container := CenterContainer.new()
+		img_container.add_child(card_img)
+		vbox.add_child(img_container)
+		panel.add_child(vbox)
+		add_child(panel)
+		await get_tree().process_frame
+		card_img.size = card_size
+	else:
+		panel.add_child(vbox)
+		add_child(panel)
+		await get_tree().process_frame
+
+	var friend_label: Label = _create_label(friend_text, font_size, Color.YELLOW)
+	friend_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(friend_label)
+
+	await get_tree().process_frame
+	panel.position = get_viewport_rect().size / 2.0 - panel.size / 2.0
+
+	await get_tree().create_timer(3.5).timeout
+	panel.queue_free()
+
+
+func _card_suit_to_giruda(suit: int) -> int:
+	match suit:
+		CardScript.Suit.SPADE: return BiddingStateScript.Giruda.SPADE
+		CardScript.Suit.DIAMOND: return BiddingStateScript.Giruda.DIAMOND
+		CardScript.Suit.HEART: return BiddingStateScript.Giruda.HEART
+		CardScript.Suit.CLUB: return BiddingStateScript.Giruda.CLUB
+	return BiddingStateScript.Giruda.NONE
+
+
+func _rank_name(rank: int) -> String:
+	match rank:
+		CardScript.Rank.ACE: return "A"
+		CardScript.Rank.KING: return "K"
+		CardScript.Rank.QUEEN: return "Q"
+		CardScript.Rank.JACK: return "J"
+	return str(rank)
 
 
 func _resort_hand_with_giruda(giruda: int) -> void:
