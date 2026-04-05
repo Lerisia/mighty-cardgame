@@ -277,7 +277,7 @@ func _continue_bidding() -> void:
 	if turn == 0:
 		_show_bid_panel_for_player()
 	else:
-		await get_tree().create_timer(0.8).timeout
+		await get_tree().create_timer(1.5).timeout
 		_do_bot_bid(turn)
 
 
@@ -290,15 +290,6 @@ func _show_bid_panel_for_player() -> void:
 		selected_bid = MIN_BID
 	selected_suit = BiddingStateScript.Giruda.SPADE
 	_update_bid_display()
-
-	var highest_text := ""
-	if bidding_manager.highest_bidder >= 0:
-		var hb: int = bidding_manager.highest_bidder
-		var hg: int = bidding_manager.highest_giruda
-		highest_text = "현재 최고: %s - %s %d" % [PLAYER_NAMES[hb], SUIT_DISPLAY.get(hg, "?"), bidding_manager.highest_bid]
-	else:
-		highest_text = "아직 공약 없음"
-	$BidPanel/VBox/TopRow/BidDisplay.text = "%s\n%s %d" % [highest_text, SUIT_DISPLAY[selected_suit], selected_bid]
 
 	$BidPanel.visible = true
 	$BidPanel.z_index = 100
@@ -317,9 +308,11 @@ func _do_bot_bid(bot_player: int) -> void:
 
 	if bidding_manager.states[bot_player].passed:
 		_show_player_bid_text(bot_player, "패스")
+		_play_sfx(_sfx_pass)
 	elif after_bid > before_bid:
 		var g: int = bidding_manager.states[bot_player].bid_giruda
 		_show_player_bid(bot_player, g, after_bid)
+		_play_sfx(_sfx_bid)
 
 	_continue_bidding()
 
@@ -335,8 +328,18 @@ func _show_player_bid_text(player_index: int, text: String) -> void:
 
 	var vh: float = get_viewport_rect().size.y
 	var font_size: int = int(vh / 25.0)
+
+	var panel := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0, 0, 0, 0.6)
+	style.set_corner_radius_all(6)
+	style.set_content_margin_all(8)
+	panel.add_theme_stylebox_override("panel", style)
+	panel.z_index = 90
+
 	var label: Label = _create_label(text, font_size, Color.YELLOW)
-	label.z_index = 90
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	panel.add_child(label)
 
 	var origin: Vector2 = CardUtilScript.get_hand_origin(get_viewport(), player_index)
 	var cs: Vector2 = CardUtilScript.get_card_size(get_viewport())
@@ -344,20 +347,19 @@ func _show_player_bid_text(player_index: int, text: String) -> void:
 	match player_index:
 		0:
 			var my_cs: Vector2 = CardUtilScript.get_my_card_size(get_viewport())
-			label.position = Vector2(origin.x + CardUtilScript._my_hand_width(my_cs, 10) / 2.0, origin.y - font_size - 10)
-			label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			panel.position = Vector2(origin.x + CardUtilScript._my_hand_width(my_cs, 10) / 2.0, origin.y - font_size - 20)
 		1:
-			label.position = Vector2(origin.x + cs.x + 10, origin.y)
+			panel.position = Vector2(origin.x + cs.x + 10, origin.y)
 		2:
-			label.position = Vector2(origin.x, cs.y * 0.5 + 30)
+			panel.position = Vector2(origin.x, cs.y * 0.5 + 30)
 		3:
 			var hand_w: float = CardUtilScript._hand_width(cs, 10)
-			label.position = Vector2(origin.x + hand_w / 2.0, cs.y * 0.5 + 30)
+			panel.position = Vector2(origin.x + hand_w / 2.0, cs.y * 0.5 + 30)
 		4:
-			label.position = Vector2(origin.x - font_size * 4, origin.y)
+			panel.position = Vector2(origin.x - font_size * 5, origin.y)
 
-	add_child(label)
-	bid_labels[player_index] = label
+	add_child(panel)
+	bid_labels[player_index] = panel
 
 
 func _clear_bid_labels() -> void:
@@ -584,6 +586,8 @@ var _sfx_shuffle: AudioStream = preload("res://assets/sounds/shuffle.wav")
 var _sfx_deal: AudioStream = preload("res://assets/sounds/draw.wav")
 var _sfx_play: AudioStream = preload("res://assets/sounds/playcard.wav")
 var _sfx_sort: AudioStream = preload("res://assets/sounds/card-fan-1.ogg")
+var _sfx_bid: AudioStream = preload("res://assets/sounds/bid.wav")
+var _sfx_pass: AudioStream = preload("res://assets/sounds/pass.wav")
 
 
 func _play_sfx(stream: AudioStream) -> void:
