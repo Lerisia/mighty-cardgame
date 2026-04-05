@@ -134,8 +134,8 @@ stretch_mode = 0
 
 [node name="BidDisplay" type="Label" parent="BidPanel/VBox/TopRow"]
 layout_mode = 2
-custom_minimum_size = Vector2(100, 0)
-text = "♠ 13"
+custom_minimum_size = Vector2(150, 0)
+text = "스페이드 13"
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -154,26 +154,30 @@ layout_mode = 2
 custom_minimum_size = Vector2(35, 30)
 text = "▼"
 
+[node name="Spacer2" type="Control" parent="BidPanel/VBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 10)
+
 [node name="BottomRow" type="HBoxContainer" parent="BidPanel/VBox"]
 layout_mode = 2
-theme_override_constants/separation = 12
+theme_override_constants/separation = 20
 alignment = 1
 
 [node name="BidButton" type="Button" parent="BidPanel/VBox/BottomRow"]
 layout_mode = 2
-custom_minimum_size = Vector2(90, 40)
+custom_minimum_size = Vector2(100, 45)
 text = "출마"
 
 [node name="PassButton" type="Button" parent="BidPanel/VBox/BottomRow"]
 layout_mode = 2
-custom_minimum_size = Vector2(90, 40)
+custom_minimum_size = Vector2(100, 45)
 text = "패스"
 
 [node name="DealMissButton" type="Button" parent="BidPanel/VBox/BottomRow"]
 layout_mode = 2
-custom_minimum_size = Vector2(90, 40)
+custom_minimum_size = Vector2(100, 45)
+disabled = true
 text = "딜미스"
-visible = false
 
 [node name="ExitConfirmPopup" type="PopupPanel" parent="."]
 size = Vector2i(300, 150)

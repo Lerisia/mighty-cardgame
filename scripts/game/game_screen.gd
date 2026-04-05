@@ -55,7 +55,7 @@ func _ready() -> void:
 
 func _style_top_buttons() -> void:
 	var vh: float = get_viewport_rect().size.y
-	var btn_font_size: int = int(vh / 30.0)
+	var btn_font_size: int = int(vh / 24.0)
 
 	var exit_style := StyleBoxFlat.new()
 	exit_style.bg_color = Color(0.7, 0.15, 0.15)
@@ -164,10 +164,17 @@ func _update_suit_highlight() -> void:
 		var btn = grid.get_node_or_null(node_name)
 		if btn == null:
 			continue
+		btn.modulate = Color.WHITE
 		if suit_val == selected_suit:
-			btn.modulate = Color(1.0, 0.85, 0.3)
+			var border := StyleBoxFlat.new()
+			border.bg_color = Color(0, 0, 0, 0)
+			border.border_color = Color(1.0, 0.8, 0.2)
+			border.set_border_width_all(3)
+			border.set_corner_radius_all(4)
+			btn.add_theme_stylebox_override("normal", border)
 		else:
-			btn.modulate = Color.WHITE
+			var empty := StyleBoxEmpty.new()
+			btn.add_theme_stylebox_override("normal", empty)
 
 
 func _select_suit(suit: int) -> void:
