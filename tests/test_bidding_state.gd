@@ -18,10 +18,10 @@ func test_place_bid() -> void:
 	assert_int(state.bid_giruda).is_equal(BiddingStateScript.Giruda.SPADE)
 
 
-func test_bid_minimum_is_1() -> void:
+func test_bid_minimum_is_11() -> void:
 	var state = BiddingStateScript.new()
-	assert_bool(state.place_bid(0, BiddingStateScript.Giruda.SPADE)).is_false()
-	assert_bool(state.place_bid(1, BiddingStateScript.Giruda.SPADE)).is_true()
+	assert_bool(state.place_bid(10, BiddingStateScript.Giruda.SPADE)).is_false()
+	assert_bool(state.place_bid(11, BiddingStateScript.Giruda.SPADE)).is_true()
 
 
 func test_bid_maximum_is_20() -> void:

@@ -166,6 +166,7 @@ func _resolve_trick() -> void:
 func _reveal_friend(player_index: int) -> void:
 	friend_index = player_index
 	friend_revealed = true
+	states[player_index].is_friend = true
 	states[player_index].role = PlayStateScript.Role.FRIEND
 	var moved: Array = states[player_index].clear_point_cards()
 	face_down_pile.append_array(moved)

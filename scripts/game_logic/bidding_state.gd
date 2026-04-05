@@ -3,7 +3,7 @@ extends RefCounted
 
 enum Giruda { NONE, SPADE, DIAMOND, HEART, CLUB, NO_GIRUDA }
 
-const MIN_BID := 1
+const MIN_BID := 11
 const MAX_BID := 20
 
 var passed: bool = false
