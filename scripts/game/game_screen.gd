@@ -737,28 +737,25 @@ func _move_kitty_to_declarer(declarer: int) -> void:
 			var new_total: int = 10 + i + 1
 			if is_instance_valid(kitty_node):
 				var mid_target: Vector2 = CardUtilScript.get_card_position(get_viewport(), declarer, new_total / 2, new_total)
-				tween.tween_property(kitty_node, "position", mid_target, 0.25).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
-				tween.tween_property(kitty_node, "modulate:a", 0.0, 0.1)
+				tween.tween_property(kitty_node, "position", mid_target, 0.2).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
+				tween.tween_property(kitty_node, "modulate:a", 0.0, 0.08)
+				var capture_total: int = new_total
 				tween.tween_callback(func():
 					_play_sfx(_sfx_deal)
 					kitty_node.queue_free()
 					var new_back: Control = _create_card_back(card_size)
-					var last_pos: Vector2 = CardUtilScript.get_card_position(get_viewport(), declarer, existing_backs.size(), existing_backs.size() + 1)
+					var last_pos: Vector2 = CardUtilScript.get_card_position(get_viewport(), declarer, existing_backs.size(), capture_total)
 					_add_card(new_back, card_size, last_pos)
 					existing_backs.append(new_back)
 					bot_hand_nodes[declarer].append(new_back)
-				)
-				tween.tween_interval(0.1)
-				var capture_total: int = new_total
-				tween.tween_callback(func():
 					var reposition: Tween = create_tween().set_parallel(true)
 					for j in range(existing_backs.size()):
 						var back = existing_backs[j]
 						if is_instance_valid(back):
 							var pos: Vector2 = CardUtilScript.get_card_position(get_viewport(), declarer, j, capture_total)
-							reposition.tween_property(back, "position", pos, 0.2)
+							reposition.tween_property(back, "position", pos, 0.15)
 				)
-				tween.tween_interval(0.3)
+				tween.tween_interval(0.35)
 		await tween.finished
 	else:
 		hands[0].append_array(kitty)
