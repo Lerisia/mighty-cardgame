@@ -35,7 +35,7 @@ var _player_tracking: Array = []
 var _card_status: Dictionary = {}
 
 
-func decide_bid(hand: Array, min_bid: int, current_highest: int, current_giruda: int) -> Dictionary:
+func decide_bid(hand: Array, min_bid: int, current_highest: int, current_giruda: int, kitty: Array = []) -> Dictionary:
 	var best_score: int = -999999
 	var best_giruda: int = BiddingStateScript.Giruda.NONE
 

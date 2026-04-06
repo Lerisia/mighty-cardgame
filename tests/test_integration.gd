@@ -35,7 +35,7 @@ func test_full_round_completes() -> void:
 		var safety: int = 0
 		while not rm.bidding_manager.is_finished() and not _all_passed(rm.bidding_manager) and safety < 100:
 			var turn: int = rm.bidding_manager.current_turn
-			bots[turn].do_bidding_turn(rm.bidding_manager)
+			bots[turn].do_bidding_turn(rm.bidding_manager, rm.kitty)
 			safety += 1
 		if _all_passed(rm.bidding_manager):
 			redeal += 1
@@ -91,7 +91,7 @@ func test_multiple_rounds() -> void:
 			var safety: int = 0
 			while not rm.bidding_manager.is_finished() and not _all_passed(rm.bidding_manager) and safety < 100:
 				var turn: int = rm.bidding_manager.current_turn
-				bots[turn].do_bidding_turn(rm.bidding_manager)
+				bots[turn].do_bidding_turn(rm.bidding_manager, rm.kitty)
 				safety += 1
 			if _all_passed(rm.bidding_manager):
 				redeal += 1
@@ -138,7 +138,7 @@ func _run_round(players: Array, bots: Array, dealer: int) -> void:
 		var safety: int = 0
 		while not rm.bidding_manager.is_finished() and not _all_passed(rm.bidding_manager) and safety < 100:
 			var turn: int = rm.bidding_manager.current_turn
-			bots[turn].do_bidding_turn(rm.bidding_manager)
+			bots[turn].do_bidding_turn(rm.bidding_manager, rm.kitty)
 			safety += 1
 
 		if _all_passed(rm.bidding_manager):

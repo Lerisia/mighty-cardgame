@@ -362,7 +362,7 @@ func _do_bot_bid(bot_player: int) -> void:
 		return
 
 	var before_bid: int = bidding_manager.highest_bid
-	bots[bot_idx].do_bidding_turn(bidding_manager)
+	bots[bot_idx].do_bidding_turn(bidding_manager, kitty)
 	var after_bid: int = bidding_manager.highest_bid
 
 	if bidding_manager.states[bot_player].passed:
@@ -548,6 +548,31 @@ func _bot_declarer_phase(declarer: int, giruda: int, bid: int) -> void:
 	var final_bid: int = dp.bid
 
 	_hide_announcement()
+
+	var card_size: Vector2 = CardUtilScript.get_card_size(get_viewport())
+	for node in kitty_card_nodes:
+		if is_instance_valid(node):
+			node.queue_free()
+	kitty_card_nodes.clear()
+
+	for card in placed_cards.duplicate():
+		if is_instance_valid(card):
+			card.queue_free()
+	placed_cards.clear()
+	for p in range(5):
+		if p == 0:
+			continue
+		var count: int = 10
+		for i in range(count):
+			var card: Control = _create_card_back(card_size)
+			var pos: Vector2 = CardUtilScript.get_card_position(get_viewport(), p, i, count)
+			_add_card(card, card_size, pos)
+	for i in range(hands[0].size()):
+		var card: Control = _create_card_front(CardUtilScript.get_my_card_size(get_viewport()), hands[0][i])
+		var pos: Vector2 = CardUtilScript.get_card_position(get_viewport(), 0, i, hands[0].size())
+		_add_card(card, CardUtilScript.get_my_card_size(get_viewport()), pos)
+		p0_card_nodes.append({"node": card, "card_data": hands[0][i]})
+
 	await get_tree().create_timer(0.3).timeout
 
 	var friend_type: int = dp.friend_call_type
@@ -696,14 +721,15 @@ func _move_kitty_to_declarer(declarer: int) -> void:
 	var my_card_size: Vector2 = CardUtilScript.get_my_card_size(get_viewport())
 
 	if declarer != 0:
-		var origin: Vector2 = CardUtilScript.get_hand_origin(get_viewport(), declarer)
 		var tween: Tween = create_tween()
 		for i in range(kitty_card_nodes.size()):
 			var kitty_node = kitty_card_nodes[i]
+			var current_total: int = 11 + i
 			if is_instance_valid(kitty_node):
-				tween.tween_property(kitty_node, "position", origin, 0.3).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
+				var target: Vector2 = CardUtilScript.get_card_position(get_viewport(), declarer, 10 + i, current_total)
+				tween.tween_property(kitty_node, "position", target, 0.3).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
 				tween.tween_callback(func(): _play_sfx(_sfx_deal))
-				tween.tween_interval(0.15)
+				tween.tween_interval(0.3)
 		await tween.finished
 	else:
 		hands[0].append_array(kitty)

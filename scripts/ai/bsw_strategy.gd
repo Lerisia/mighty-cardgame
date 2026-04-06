@@ -13,12 +13,16 @@ const CardValidatorScript = preload("res://scripts/game_logic/card_validator.gd"
 var pride_fac: int = 5
 
 
-func decide_bid(hand: Array, min_bid: int, current_highest: int, current_giruda: int) -> Dictionary:
+func decide_bid(hand: Array, min_bid: int, current_highest: int, current_giruda: int, kitty: Array = []) -> Dictionary:
+	var eval_hand: Array = hand.duplicate()
+	if kitty.size() > 0:
+		eval_hand.append_array(kitty)
+
 	var eval_result: Dictionary
-	if hand.size() == 13:
-		eval_result = PrideTableScript.evaluate_best_giruda_13(hand)
+	if eval_hand.size() == 13:
+		eval_result = PrideTableScript.evaluate_best_giruda_13(eval_hand)
 	else:
-		eval_result = PrideTableScript.evaluate_best_giruda(hand)
+		eval_result = PrideTableScript.evaluate_best_giruda(eval_hand)
 	var target: int = PrideTableScript.pride_to_min_score(eval_result["pride"], pride_fac, min_bid)
 
 	if min_bid > target:

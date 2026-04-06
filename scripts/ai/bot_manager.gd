@@ -13,7 +13,7 @@ func _init(p_strategy, p_player_index: int) -> void:
 	player_index = p_player_index
 
 
-func do_bidding_turn(bidding_manager) -> void:
+func do_bidding_turn(bidding_manager, kitty: Array = []) -> void:
 	var state = bidding_manager.states[player_index]
 	if state.passed:
 		return
@@ -25,6 +25,7 @@ func do_bidding_turn(bidding_manager) -> void:
 		bidding_manager.minimum_bid,
 		bidding_manager.highest_bid,
 		bidding_manager.highest_giruda,
+		kitty,
 	)
 
 	if result["pass"]:

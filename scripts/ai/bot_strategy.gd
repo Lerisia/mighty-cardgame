@@ -2,7 +2,7 @@ class_name BotStrategy
 extends RefCounted
 
 
-func decide_bid(hand: Array, min_bid: int, current_highest: int, current_giruda: int) -> Dictionary:
+func decide_bid(hand: Array, min_bid: int, current_highest: int, current_giruda: int, kitty: Array = []) -> Dictionary:
 	return {"pass": true}
 
 
