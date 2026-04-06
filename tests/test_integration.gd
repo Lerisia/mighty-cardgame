@@ -25,17 +25,23 @@ func _make_bots() -> Array:
 func test_full_round_completes() -> void:
 	var players = _make_players()
 	var bots = _make_bots()
-	var rm = RoundManagerScript.new(players, 0, 13)
+	var rm = null
+	var redeal: int = 0
+	while redeal < 10:
+		rm = RoundManagerScript.new(players, 0, 13)
+		rm.do_deal()
+		assert_int(rm.phase).is_equal(RoundManagerScript.Phase.BIDDING)
 
-	rm.do_deal()
-	assert_int(rm.phase).is_equal(RoundManagerScript.Phase.BIDDING)
+		var safety: int = 0
+		while not rm.bidding_manager.is_finished() and not _all_passed(rm.bidding_manager) and safety < 100:
+			var turn: int = rm.bidding_manager.current_turn
+			bots[turn].do_bidding_turn(rm.bidding_manager)
+			safety += 1
+		if _all_passed(rm.bidding_manager):
+			redeal += 1
+			continue
+		break
 
-	# Bidding
-	var safety := 0
-	while not rm.bidding_manager.is_finished() and safety < 100:
-		var turn: int = rm.bidding_manager.current_turn
-		bots[turn].do_bidding_turn(rm.bidding_manager)
-		safety += 1
 	assert_bool(rm.bidding_manager.is_finished()).is_true()
 
 	rm.advance_from_bidding()
@@ -50,7 +56,7 @@ func test_full_round_completes() -> void:
 	assert_int(rm.phase).is_equal(RoundManagerScript.Phase.PLAY)
 
 	# 10 tricks
-	safety = 0
+	var safety: int = 0
 	while not rm.trick_manager.is_game_over() and safety < 100:
 		var turn: int = rm.trick_manager.current_turn
 		bots[turn].do_trick_turn(rm.trick_manager)
@@ -76,21 +82,29 @@ func test_multiple_rounds() -> void:
 	var dealer := 0
 
 	for round_num in range(3):
-		var rm = RoundManagerScript.new(players, dealer, 13)
-		rm.do_deal()
+		var rm = null
+		var redeal: int = 0
+		while redeal < 10:
+			rm = RoundManagerScript.new(players, dealer, 13)
+			rm.do_deal()
 
-		var safety := 0
-		while not rm.bidding_manager.is_finished() and safety < 100:
-			var turn: int = rm.bidding_manager.current_turn
-			bots[turn].do_bidding_turn(rm.bidding_manager)
-			safety += 1
+			var safety: int = 0
+			while not rm.bidding_manager.is_finished() and not _all_passed(rm.bidding_manager) and safety < 100:
+				var turn: int = rm.bidding_manager.current_turn
+				bots[turn].do_bidding_turn(rm.bidding_manager)
+				safety += 1
+			if _all_passed(rm.bidding_manager):
+				redeal += 1
+				continue
+			break
+
 		assert_bool(rm.bidding_manager.is_finished()).is_true()
 
 		assert_bool(rm.advance_from_bidding()).is_true()
 		bots[rm.declarer_index].do_declarer_phase(rm.declarer_phase)
 		assert_bool(rm.advance_from_declarer()).is_true()
 
-		safety = 0
+		var safety: int = 0
 		while not rm.trick_manager.is_game_over() and safety < 100:
 			var turn: int = rm.trick_manager.current_turn
 			bots[turn].do_trick_turn(rm.trick_manager)
@@ -107,21 +121,36 @@ func test_multiple_rounds() -> void:
 	assert_int(total).is_equal(0)
 
 
-func _run_round(players: Array, bots: Array, dealer: int) -> void:
-	var rm = RoundManagerScript.new(players, dealer, 13)
-	rm.do_deal()
+func _all_passed(bm) -> bool:
+	for i in range(bm.player_count):
+		if not bm.states[i].passed:
+			return false
+	return bm.highest_bidder < 0
 
-	var safety := 0
-	while not rm.bidding_manager.is_finished() and safety < 100:
-		var turn: int = rm.bidding_manager.current_turn
-		bots[turn].do_bidding_turn(rm.bidding_manager)
-		safety += 1
+
+func _run_round(players: Array, bots: Array, dealer: int) -> void:
+	var redeal_count: int = 0
+	var rm = null
+	while redeal_count < 10:
+		rm = RoundManagerScript.new(players, dealer, 13)
+		rm.do_deal()
+
+		var safety: int = 0
+		while not rm.bidding_manager.is_finished() and not _all_passed(rm.bidding_manager) and safety < 100:
+			var turn: int = rm.bidding_manager.current_turn
+			bots[turn].do_bidding_turn(rm.bidding_manager)
+			safety += 1
+
+		if _all_passed(rm.bidding_manager):
+			redeal_count += 1
+			continue
+		break
 
 	rm.advance_from_bidding()
 	bots[rm.declarer_index].do_declarer_phase(rm.declarer_phase)
 	rm.advance_from_declarer()
 
-	safety = 0
+	var safety: int = 0
 	while not rm.trick_manager.is_game_over() and safety < 100:
 		var turn: int = rm.trick_manager.current_turn
 		bots[turn].do_trick_turn(rm.trick_manager)

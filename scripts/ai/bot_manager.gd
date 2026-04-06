@@ -28,38 +28,10 @@ func do_bidding_turn(bidding_manager) -> void:
 	)
 
 	if result["pass"]:
-		if bidding_manager.is_last_player_standing():
-			_force_bid(bidding_manager)
-		else:
-			bidding_manager.pass_turn(player_index)
+		bidding_manager.pass_turn(player_index)
 	else:
 		if not bidding_manager.place_bid(player_index, result["bid"], result["giruda"]):
-			if bidding_manager.is_last_player_standing():
-				_force_bid(bidding_manager)
-			else:
-				bidding_manager.pass_turn(player_index)
-
-
-func _force_bid(bidding_manager) -> void:
-	var all_girudas := [
-		BiddingStateScript.Giruda.NO_GIRUDA,
-		BiddingStateScript.Giruda.SPADE,
-		BiddingStateScript.Giruda.DIAMOND,
-		BiddingStateScript.Giruda.HEART,
-		BiddingStateScript.Giruda.CLUB,
-	]
-	var bid_val: int = bidding_manager.highest_bid
-	if bid_val < bidding_manager.minimum_bid:
-		bid_val = bidding_manager.minimum_bid
-	for g in all_girudas:
-		if bidding_manager.place_bid(player_index, bid_val, g):
-			return
-	bid_val += 1
-	while bid_val <= 20:
-		for g in all_girudas:
-			if bidding_manager.place_bid(player_index, bid_val, g):
-				return
-		bid_val += 1
+			bidding_manager.pass_turn(player_index)
 
 
 func do_declarer_phase(declarer_phase) -> void:
