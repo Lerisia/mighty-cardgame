@@ -1763,89 +1763,77 @@ func _dp_step_friend() -> Dictionary:
 	btn_row2.add_theme_constant_override("separation", 15)
 
 	_dp_awaiting_input = true
-	var chosen_result: Dictionary = {}
+	var chosen_result: Dictionary = recommend.duplicate()
+	var all_btns: Array = []
 
-	# Helper to check if a card matches recommendation
-	var _rec_is_mighty: bool = rec_card != null and not rec_card.is_joker and rec_card.suit == mighty_suit and rec_card.rank == mighty_rank
-	var _rec_is_joker: bool = rec_card != null and rec_card.is_joker
-	var _rec_is_giruda_ace: bool = rec_card != null and not rec_card.is_joker and giruda_suit >= 0 and rec_card.suit == giruda_suit and rec_card.rank == CardScript.Rank.ACE and not _rec_is_mighty
+	var _highlight_btn := func(active_btn: Button):
+		for b in all_btns:
+			if b == active_btn:
+				b.add_theme_color_override("font_color", Color.YELLOW)
+			else:
+				b.remove_theme_color_override("font_color")
+
+	var _make_btn := func(text: String, min_w: float, disabled: bool) -> Button:
+		var btn := Button.new()
+		btn.text = text
+		btn.add_theme_font_size_override("font_size", btn_font)
+		btn.add_theme_font_override("font", _get_bold_font())
+		btn.custom_minimum_size = Vector2(min_w, vh * 0.1)
+		btn.disabled = disabled
+		all_btns.append(btn)
+		return btn
 
 	# 마이티 프렌드
-	var mighty_btn := Button.new()
-	mighty_btn.text = "마이티 프렌드 ★" if _rec_is_mighty else "마이티 프렌드"
-	mighty_btn.add_theme_font_size_override("font_size", btn_font)
-	mighty_btn.add_theme_font_override("font", _get_bold_font())
-	mighty_btn.custom_minimum_size = Vector2(vw * 0.25, vh * 0.1)
-	mighty_btn.disabled = _dp_is_card_in_hand_or_discard_specific(mighty_suit, mighty_rank)
+	var mighty_disabled: bool = _dp_is_card_in_hand_or_discard_specific(mighty_suit, mighty_rank)
+	var mighty_btn: Button = _make_btn.call("마이티 프렌드", vw * 0.25, mighty_disabled)
 	mighty_btn.pressed.connect(func():
 		chosen_result = {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": CardScript.new(mighty_suit, mighty_rank)}
-		_dp_awaiting_input = false
+		_highlight_btn.call(mighty_btn)
 	)
 	btn_row1.add_child(mighty_btn)
 
 	# 조커 프렌드
-	var joker_btn := Button.new()
-	joker_btn.text = "조커 프렌드 ★" if _rec_is_joker else "조커 프렌드"
-	joker_btn.add_theme_font_size_override("font_size", btn_font)
-	joker_btn.add_theme_font_override("font", _get_bold_font())
-	joker_btn.custom_minimum_size = Vector2(vw * 0.25, vh * 0.1)
-	joker_btn.disabled = _dp_is_card_in_hand_or_discard_specific(-1, -1)
+	var joker_disabled: bool = _dp_is_card_in_hand_or_discard_specific(-1, -1)
+	var joker_btn: Button = _make_btn.call("조커 프렌드", vw * 0.25, joker_disabled)
 	joker_btn.pressed.connect(func():
 		chosen_result = {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": CardScript.create_joker()}
-		_dp_awaiting_input = false
+		_highlight_btn.call(joker_btn)
 	)
 	btn_row1.add_child(joker_btn)
 
-	# 기루다A 프렌드 (only if giruda is a suit)
+	# 기루다A 프렌드
+	var ace_btn: Button = null
 	if giruda_suit >= 0:
-		var ace_btn := Button.new()
-		var ace_text: String = "%s A 프렌드" % SUIT_DISPLAY.get(_dp.giruda, "?")
-		ace_btn.text = (ace_text + " ★") if _rec_is_giruda_ace else ace_text
-		ace_btn.add_theme_font_size_override("font_size", btn_font)
-		ace_btn.add_theme_font_override("font", _get_bold_font())
-		ace_btn.custom_minimum_size = Vector2(vw * 0.25, vh * 0.1)
-		ace_btn.disabled = _dp_is_card_in_hand_or_discard_specific(giruda_suit, CardScript.Rank.ACE)
-		# If giruda ace IS the mighty, disable (already covered by mighty button)
+		var ace_disabled: bool = _dp_is_card_in_hand_or_discard_specific(giruda_suit, CardScript.Rank.ACE)
 		if giruda_suit == mighty_suit and CardScript.Rank.ACE == mighty_rank:
-			ace_btn.disabled = true
+			ace_disabled = true
+		ace_btn = _make_btn.call("%s A 프렌드" % SUIT_DISPLAY.get(_dp.giruda, "?"), vw * 0.25, ace_disabled)
 		ace_btn.pressed.connect(func():
 			chosen_result = {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": CardScript.new(giruda_suit, CardScript.Rank.ACE)}
-			_dp_awaiting_input = false
+			_highlight_btn.call(ace_btn)
 		)
 		btn_row1.add_child(ace_btn)
 
 	vbox.add_child(btn_row1)
 
 	# 초구 프렌드
-	var first_btn := Button.new()
-	first_btn.text = "초구 프렌드"
-	first_btn.add_theme_font_size_override("font_size", btn_font)
-	first_btn.add_theme_font_override("font", _get_bold_font())
-	first_btn.custom_minimum_size = Vector2(vw * 0.25, vh * 0.1)
+	var first_btn: Button = _make_btn.call("초구 프렌드", vw * 0.25, false)
 	first_btn.pressed.connect(func():
 		chosen_result = {"type": DeclarerPhaseScript.FriendCallType.FIRST_TRICK_WINNER}
-		_dp_awaiting_input = false
+		_highlight_btn.call(first_btn)
 	)
 	btn_row2.add_child(first_btn)
 
 	# 노프렌드
-	var no_btn := Button.new()
-	no_btn.text = "노프렌드"
-	no_btn.add_theme_font_size_override("font_size", btn_font)
-	no_btn.add_theme_font_override("font", _get_bold_font())
-	no_btn.custom_minimum_size = Vector2(vw * 0.25, vh * 0.1)
+	var no_btn: Button = _make_btn.call("노프렌드", vw * 0.25, false)
 	no_btn.pressed.connect(func():
 		chosen_result = {"type": DeclarerPhaseScript.FriendCallType.NO_FRIEND}
-		_dp_awaiting_input = false
+		_highlight_btn.call(no_btn)
 	)
 	btn_row2.add_child(no_btn)
 
-	# 기타 (custom card selector)
-	var other_btn := Button.new()
-	other_btn.text = "기타..."
-	other_btn.add_theme_font_size_override("font_size", btn_font)
-	other_btn.add_theme_font_override("font", _get_bold_font())
-	other_btn.custom_minimum_size = Vector2(vw * 0.25, vh * 0.1)
+	# 기타
+	var other_btn: Button = _make_btn.call("기타...", vw * 0.25, false)
 	btn_row2.add_child(other_btn)
 
 	vbox.add_child(btn_row2)
@@ -1895,7 +1883,6 @@ func _dp_step_friend() -> Dictionary:
 		selector_row.add_child(btn)
 		suit_buttons.append({"button": btn, "suit": suit_val})
 
-	# Rank: display + up/down
 	var rank_col := VBoxContainer.new()
 	rank_col.alignment = BoxContainer.ALIGNMENT_CENTER
 	var rank_up := Button.new()
@@ -1932,27 +1919,53 @@ func _dp_step_friend() -> Dictionary:
 	rank_col.add_child(rank_label)
 	rank_col.add_child(rank_down)
 	selector_row.add_child(rank_col)
-
 	custom_box.add_child(selector_row)
 
-	var custom_confirm := Button.new()
-	custom_confirm.name = "CustomConfirm"
-	custom_confirm.text = "이 카드로 확정"
-	custom_confirm.add_theme_font_size_override("font_size", int(vh / 20.0))
-	custom_confirm.add_theme_font_override("font", _get_bold_font())
-	custom_confirm.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	custom_confirm.disabled = _dp_is_card_in_hand_or_discard_specific(_dp_friend_suit, _dp_friend_rank)
-	custom_confirm.pressed.connect(func():
+	var custom_select_btn := Button.new()
+	custom_select_btn.text = "이 카드 선택"
+	custom_select_btn.add_theme_font_size_override("font_size", int(vh / 20.0))
+	custom_select_btn.add_theme_font_override("font", _get_bold_font())
+	custom_select_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	custom_select_btn.name = "CustomConfirm"
+	custom_select_btn.disabled = _dp_is_card_in_hand_or_discard_specific(_dp_friend_suit, _dp_friend_rank)
+	custom_select_btn.pressed.connect(func():
 		chosen_result = {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": CardScript.new(_dp_friend_suit, _dp_friend_rank)}
-		_dp_awaiting_input = false
+		_highlight_btn.call(other_btn)
+		other_btn.text = "기타: %s %s" % [SUIT_DISPLAY.get(_card_suit_to_giruda(_dp_friend_suit), "?"), RANK_DISPLAY.get(_dp_friend_rank, "?")]
 	)
-	custom_box.add_child(custom_confirm)
+	custom_box.add_child(custom_select_btn)
 
 	vbox.add_child(custom_box)
 
 	other_btn.pressed.connect(func():
 		custom_box.visible = not custom_box.visible
 	)
+
+	# Confirm button
+	var confirm_btn := Button.new()
+	confirm_btn.text = "확정"
+	confirm_btn.add_theme_font_size_override("font_size", btn_font)
+	confirm_btn.add_theme_font_override("font", _get_bold_font())
+	confirm_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	vbox.add_child(confirm_btn)
+
+	confirm_btn.pressed.connect(func():
+		if _dp_awaiting_input and chosen_result.size() > 0:
+			_dp_awaiting_input = false
+	)
+
+	# Pre-highlight recommended button
+	if rec_type == DeclarerPhaseScript.FriendCallType.CARD and rec_card != null:
+		if not rec_card.is_joker and rec_card.suit == mighty_suit and rec_card.rank == mighty_rank:
+			_highlight_btn.call(mighty_btn)
+		elif rec_card.is_joker:
+			_highlight_btn.call(joker_btn)
+		elif ace_btn and giruda_suit >= 0 and rec_card.suit == giruda_suit and rec_card.rank == CardScript.Rank.ACE:
+			_highlight_btn.call(ace_btn)
+	elif rec_type == DeclarerPhaseScript.FriendCallType.FIRST_TRICK_WINNER:
+		_highlight_btn.call(first_btn)
+	elif rec_type == DeclarerPhaseScript.FriendCallType.NO_FRIEND:
+		_highlight_btn.call(no_btn)
 
 	_dp_panel.add_child(vbox)
 	_dp_panel.visible = false
