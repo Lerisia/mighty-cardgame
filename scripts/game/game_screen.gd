@@ -11,6 +11,7 @@ const BotManagerScript = preload("res://scripts/ai/bot_manager.gd")
 const BSWStrategyScript = preload("res://scripts/ai/bsw_strategy.gd")
 const XiaoStrategyScript = preload("res://scripts/ai/xiao_strategy.gd")
 const DeclarerPhaseScript = preload("res://scripts/game_logic/declarer_phase.gd")
+const CardValidatorScript = preload("res://scripts/game_logic/card_validator.gd")
 
 const CARD_BORDER := 1.0
 const CARD_BORDER_COLOR := Color(0.15, 0.15, 0.15, 1.0)
@@ -540,7 +541,7 @@ func _start_declarer_phase() -> void:
 
 func _bot_declarer_phase(declarer: int, giruda: int, bid: int) -> void:
 	await _show_announcement_stay("고민 중...")
-	await get_tree().create_timer(2.0).timeout
+	await get_tree().create_timer(1.0).timeout
 
 	var dp = DeclarerPhaseScript.new(hands[declarer], kitty, bid, giruda)
 	var bot_idx: int = declarer - 1
@@ -590,6 +591,8 @@ func _bot_declarer_phase(declarer: int, giruda: int, bid: int) -> void:
 			friend_card = dp.friend_call_card
 			if friend_card.is_joker:
 				friend_text = "조커 프렌드"
+			elif CardValidatorScript.is_mighty(friend_card, final_giruda):
+				friend_text = "마이티 프렌드"
 			else:
 				var card_str: String = "%s %s" % [SUIT_DISPLAY.get(_card_suit_to_giruda(friend_card.suit), "?"), _rank_name(friend_card.rank)]
 				friend_text = "%s 프렌드" % card_str
@@ -641,6 +644,7 @@ func _bot_declarer_phase(declarer: int, giruda: int, bid: int) -> void:
 	vbox.add_child(friend_label)
 
 	panel.add_child(vbox)
+	panel.visible = false
 	add_child(panel)
 	await get_tree().process_frame
 	if friend_card:
@@ -649,8 +653,10 @@ func _bot_declarer_phase(declarer: int, giruda: int, bid: int) -> void:
 			card_img.size = CardUtilScript.get_card_size(get_viewport())
 	await get_tree().process_frame
 	panel.position = get_viewport_rect().size / 2.0 - panel.size / 2.0
+	panel.visible = true
+	_play_sfx(_sfx_elected)
 
-	await get_tree().create_timer(3.5).timeout
+	await get_tree().create_timer(5.0).timeout
 	panel.queue_free()
 
 

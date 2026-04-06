@@ -305,7 +305,17 @@ func _calculate_hand_strength(giruda: int, hand: Array) -> int:
 			if _count_suit(hand, suit_idx) == 0:
 				score += WEIGHT_VOID_SUIT
 	else:
-		score += WEIGHT_KIRUDA_MATCH + WEIGHT_POINT_SUIT
+		if has_mighty or has_joker:
+			score += WEIGHT_KIRUDA_MATCH + WEIGHT_POINT_SUIT
+		var ace_count: int = 0
+		for card in hand:
+			if not card.is_joker and card.rank == CardScript.Rank.ACE:
+				if not CardValidatorScript.is_mighty(card, giruda):
+					ace_count += 1
+		if ace_count >= 3:
+			score += WEIGHT_REMAINING
+		elif ace_count >= 2:
+			score += WEIGHT_REMAINING / 2
 		var void_count: int = 0
 		for suit_idx in range(4):
 			if _count_suit(hand, suit_idx) == 0:
