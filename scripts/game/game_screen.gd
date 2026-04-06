@@ -1241,11 +1241,7 @@ func _player_declarer_phase(giruda: int, bid: int) -> void:
 
 func _dp_step_giruda_change(raise_amount: int) -> void:
 	_dp_selected_giruda = _dp.giruda
-	_dp_selected_bid = _dp.bid + raise_amount
-	if _dp_selected_giruda == BiddingStateScript.Giruda.NO_GIRUDA:
-		_dp_selected_bid = _dp.bid + raise_amount - 1
-	if _dp_selected_bid > MAX_BID:
-		_dp_selected_bid = MAX_BID
+	_dp_selected_bid = _dp.bid
 
 	var vh: float = get_viewport_rect().size.y
 	var font_size: int = int(vh / 18.0)
@@ -1337,9 +1333,13 @@ func _dp_step_giruda_change(raise_amount: int) -> void:
 	bid_row.add_child(up_btn)
 
 	down_btn.pressed.connect(func():
-		var min_bid: int = _dp.bid + raise_amount
-		if _dp_selected_giruda == BiddingStateScript.Giruda.NO_GIRUDA:
+		var min_bid: int
+		if _dp_selected_giruda == _dp.giruda:
+			min_bid = _dp.bid
+		elif _dp_selected_giruda == BiddingStateScript.Giruda.NO_GIRUDA:
 			min_bid = _dp.bid + raise_amount - 1
+		else:
+			min_bid = _dp.bid + raise_amount
 		if _dp_selected_bid > min_bid:
 			_dp_selected_bid -= 1
 			bid_label.text = "%s %d" % [SUIT_DISPLAY.get(_dp_selected_giruda, "?"), _dp_selected_bid]
@@ -1412,9 +1412,13 @@ func _dp_update_giruda_change_highlight(suit_buttons: Array, raise_amount: int) 
 	for entry in suit_buttons:
 		var border = entry["button"].get_node("GoldBorder")
 		border.visible = (entry["giruda"] == _dp_selected_giruda)
-	var min_bid: int = _dp.bid + raise_amount
-	if _dp_selected_giruda == BiddingStateScript.Giruda.NO_GIRUDA:
+	var min_bid: int
+	if _dp_selected_giruda == _dp.giruda:
+		min_bid = _dp.bid
+	elif _dp_selected_giruda == BiddingStateScript.Giruda.NO_GIRUDA:
 		min_bid = _dp.bid + raise_amount - 1
+	else:
+		min_bid = _dp.bid + raise_amount
 	if _dp_selected_bid < min_bid:
 		_dp_selected_bid = min_bid
 	if _dp_selected_bid > MAX_BID:
@@ -1588,9 +1592,13 @@ func _dp_step_discard() -> void:
 		bid_row.add_child(up_btn)
 
 		down_btn.pressed.connect(func():
-			var min_bid: int = _dp.bid + 2
-			if _dp_selected_giruda == BiddingStateScript.Giruda.NO_GIRUDA:
-				min_bid = _dp.bid + 1
+			var min_bid: int
+			if _dp_selected_giruda == _dp.giruda:
+				min_bid = _dp.bid
+			else:
+				min_bid = _dp.bid + 2
+				if _dp_selected_giruda == BiddingStateScript.Giruda.NO_GIRUDA:
+					min_bid = _dp.bid + 1
 			if _dp_selected_bid > min_bid:
 				_dp_selected_bid -= 1
 				_dp_update_discard_bid_label()
@@ -1657,9 +1665,14 @@ func _dp_update_discard_panel() -> void:
 func _dp_update_discard_bid_label() -> void:
 	if not _dp_panel or not is_instance_valid(_dp_panel):
 		return
-	var min_bid: int = _dp.bid + 2
-	if _dp_selected_giruda == BiddingStateScript.Giruda.NO_GIRUDA:
-		min_bid = _dp.bid + 1
+	var min_bid: int
+	if _dp_selected_giruda == _dp.giruda:
+		# Same giruda = no change, allow original bid
+		min_bid = _dp.bid
+	else:
+		min_bid = _dp.bid + 2
+		if _dp_selected_giruda == BiddingStateScript.Giruda.NO_GIRUDA:
+			min_bid = _dp.bid + 1
 	if _dp_selected_bid < min_bid:
 		_dp_selected_bid = min_bid
 	if _dp_selected_bid > MAX_BID:
