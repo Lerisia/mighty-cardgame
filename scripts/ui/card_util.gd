@@ -51,7 +51,8 @@ static func get_card_position(viewport: Viewport, player_index: int, card_index:
 	var origin: Vector2 = get_hand_origin(viewport, player_index)
 	var cs: Vector2 = get_card_size(viewport)
 	if is_vertical(player_index):
-		var step: float = cs.y * CARD_OVERLAP_V
+		var fixed_height: float = cs.y + (10 - 1) * cs.y * CARD_OVERLAP_V
+		var step: float = (fixed_height - cs.y) / maxi(total_cards - 1, 1)
 		return origin + Vector2(0, card_index * step)
 	elif player_index == 0:
 		var my_cs: Vector2 = get_my_card_size(viewport)
@@ -59,7 +60,8 @@ static func get_card_position(viewport: Viewport, player_index: int, card_index:
 		var step: float = (fixed_width - my_cs.x) / maxi(total_cards - 1, 1)
 		return origin + Vector2(card_index * step, 0)
 	else:
-		var step: float = cs.x * CARD_OVERLAP_H
+		var fixed_width: float = _hand_width(cs, 10)
+		var step: float = (fixed_width - cs.x) / maxi(total_cards - 1, 1)
 		return origin + Vector2(card_index * step, 0)
 
 
