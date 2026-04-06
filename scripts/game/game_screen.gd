@@ -728,27 +728,37 @@ func _move_kitty_to_declarer(declarer: int) -> void:
 			if is_instance_valid(card):
 				existing_backs.append(card)
 
-		var origin: Vector2 = CardUtilScript.get_hand_origin(get_viewport(), declarer)
+		var center: Vector2 = CardUtilScript.get_center(get_viewport())
+		var half_card: Vector2 = card_size / 2.0
+
 		var tween: Tween = create_tween()
 		for i in range(kitty_card_nodes.size()):
 			var kitty_node = kitty_card_nodes[i]
+			var new_total: int = 10 + i + 1
 			if is_instance_valid(kitty_node):
-				tween.tween_property(kitty_node, "position", origin, 0.3).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
+				var mid_target: Vector2 = CardUtilScript.get_card_position(get_viewport(), declarer, new_total / 2, new_total)
+				tween.tween_property(kitty_node, "position", mid_target, 0.25).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
+				tween.tween_property(kitty_node, "modulate:a", 0.0, 0.1)
 				tween.tween_callback(func():
 					_play_sfx(_sfx_deal)
 					kitty_node.queue_free()
 					var new_back: Control = _create_card_back(card_size)
-					_add_card(new_back, card_size, origin)
+					var last_pos: Vector2 = CardUtilScript.get_card_position(get_viewport(), declarer, existing_backs.size(), existing_backs.size() + 1)
+					_add_card(new_back, card_size, last_pos)
 					existing_backs.append(new_back)
 					bot_hand_nodes[declarer].append(new_back)
+				)
+				tween.tween_interval(0.1)
+				var capture_total: int = new_total
+				tween.tween_callback(func():
 					var reposition: Tween = create_tween().set_parallel(true)
 					for j in range(existing_backs.size()):
 						var back = existing_backs[j]
 						if is_instance_valid(back):
-							var pos: Vector2 = CardUtilScript.get_card_position(get_viewport(), declarer, j, existing_backs.size())
+							var pos: Vector2 = CardUtilScript.get_card_position(get_viewport(), declarer, j, capture_total)
 							reposition.tween_property(back, "position", pos, 0.2)
 				)
-				tween.tween_interval(0.5)
+				tween.tween_interval(0.3)
 		await tween.finished
 	else:
 		hands[0].append_array(kitty)
