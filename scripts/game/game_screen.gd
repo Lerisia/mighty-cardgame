@@ -27,6 +27,22 @@ const SUIT_DISPLAY := {
 	BiddingStateScript.Giruda.NO_GIRUDA: "노기루",
 }
 
+const SUIT_ICONS := {
+	BiddingStateScript.Giruda.SPADE: "res://assets/icons/spade.png",
+	BiddingStateScript.Giruda.DIAMOND: "res://assets/icons/diamond.png",
+	BiddingStateScript.Giruda.HEART: "res://assets/icons/heart.png",
+	BiddingStateScript.Giruda.CLUB: "res://assets/icons/club.png",
+	BiddingStateScript.Giruda.NO_GIRUDA: "res://assets/icons/no_giruda.png",
+}
+
+const RANK_DISPLAY := {
+	CardScript.Rank.ACE: "A", CardScript.Rank.TWO: "2", CardScript.Rank.THREE: "3",
+	CardScript.Rank.FOUR: "4", CardScript.Rank.FIVE: "5", CardScript.Rank.SIX: "6",
+	CardScript.Rank.SEVEN: "7", CardScript.Rank.EIGHT: "8", CardScript.Rank.NINE: "9",
+	CardScript.Rank.TEN: "10", CardScript.Rank.JACK: "J", CardScript.Rank.QUEEN: "Q",
+	CardScript.Rank.KING: "K",
+}
+
 const MIN_BID := 13
 const MAX_BID := 20
 
@@ -52,6 +68,17 @@ var bidding_manager = null
 var bots: Array = []
 var bid_labels: Array = [null, null, null, null, null]
 var bidding_active: bool = false
+
+# Declarer phase state
+var _dp: Object = null
+var _dp_panel: Control = null
+var _dp_selected_giruda: int = BiddingStateScript.Giruda.SPADE
+var _dp_selected_bid: int = 13
+var _dp_discard_selected: Array = []
+var _dp_awaiting_input: bool = false
+var _dp_friend_type: int = DeclarerPhaseScript.FriendCallType.CARD
+var _dp_friend_suit: int = CardScript.Suit.SPADE
+var _dp_friend_rank: int = CardScript.Rank.ACE
 
 
 func _ready() -> void:
@@ -555,7 +582,7 @@ func _start_declarer_phase() -> void:
 	if declarer != 0:
 		await _bot_declarer_phase(declarer, giruda, bid)
 	else:
-		pass # TODO: player declarer phase
+		await _player_declarer_phase(giruda, bid)
 
 
 func _bot_declarer_phase(declarer: int, giruda: int, bid: int) -> void:
@@ -675,7 +702,7 @@ func _bot_declarer_phase(declarer: int, giruda: int, bid: int) -> void:
 	panel.visible = true
 	_play_sfx(_sfx_elected)
 
-	await get_tree().create_timer(5.0).timeout
+	await get_tree().create_timer(4.0).timeout
 	panel.queue_free()
 
 
@@ -1174,3 +1201,715 @@ func _cards_equal(a, b) -> bool:
 	if a.is_joker or b.is_joker:
 		return false
 	return a.suit == b.suit and a.rank == b.rank
+
+
+# ===== Player Declarer Phase =====
+
+func _player_declarer_phase(giruda: int, bid: int) -> void:
+	_dp = DeclarerPhaseScript.new(hands[0], kitty, bid, giruda)
+
+	# Step 1: first giruda change
+	if _dp.options.allow_giruda_change_before_kitty:
+		await _dp_step_giruda_change(1)
+	else:
+		_dp.skip_first_change()
+
+	# Step 2: reveal kitty + absorb
+	_dp.reveal_kitty()
+	hands[0] = _dp.hand.duplicate()
+	await _dp_step_show_kitty()
+
+	# Step 3: second giruda change + discard 3
+	await _dp_step_discard()
+
+	# Step 4: friend selection
+	var friend_call: Dictionary = await _dp_step_friend()
+
+	# Step 5: finalize
+	var to_discard: Array = _dp_discard_selected.duplicate()
+	if not _dp.finalize(to_discard, friend_call):
+		push_warning("Player DeclarerPhase finalize failed!")
+	hands[0] = _dp.hand.duplicate()
+
+	# Rebuild hand display with 10 cards
+	_rebuild_p0_hand()
+
+	# Show result (same as bot)
+	await _dp_show_result()
+
+
+func _dp_step_giruda_change(raise_amount: int) -> void:
+	_dp_selected_giruda = _dp.giruda
+	_dp_selected_bid = _dp.bid + raise_amount
+	if _dp_selected_giruda == BiddingStateScript.Giruda.NO_GIRUDA:
+		_dp_selected_bid = _dp.bid + raise_amount - 1
+	if _dp_selected_bid > MAX_BID:
+		_dp_selected_bid = MAX_BID
+
+	var vh: float = get_viewport_rect().size.y
+	var font_size: int = int(vh / 18.0)
+	var btn_font: int = int(vh / 20.0)
+	var icon_size: int = int(vh / 8.0)
+	var big_font: int = int(vh / 12.0)
+
+	_dp_panel = PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0, 0, 0, 0.85)
+	style.set_corner_radius_all(10)
+	style.set_content_margin_all(20)
+	_dp_panel.add_theme_stylebox_override("panel", style)
+	_dp_panel.z_index = 100
+
+	var vbox := VBoxContainer.new()
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", 10)
+
+	var title_text: String = "기루다 변경 (+%d)" % raise_amount if raise_amount == 1 else "기루다 변경 (+%d)" % raise_amount
+	var title: Label = _create_label(title_text, font_size, Color.YELLOW)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(title)
+
+	var current_label: Label = _create_label("현재: %s %d" % [SUIT_DISPLAY.get(_dp.giruda, "?"), _dp.bid], int(vh / 22.0), Color(0.7, 0.7, 0.7))
+	current_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(current_label)
+
+	# Suit grid
+	var suit_grid := GridContainer.new()
+	suit_grid.columns = 5
+	suit_grid.add_theme_constant_override("h_separation", 8)
+	suit_grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+
+	var suit_buttons: Array = []
+	for giruda_val in [BiddingStateScript.Giruda.SPADE, BiddingStateScript.Giruda.DIAMOND, BiddingStateScript.Giruda.HEART, BiddingStateScript.Giruda.CLUB, BiddingStateScript.Giruda.NO_GIRUDA]:
+		var btn := TextureButton.new()
+		btn.texture_normal = load(SUIT_ICONS[giruda_val])
+		btn.ignore_texture_size = true
+		btn.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+		btn.custom_minimum_size = Vector2(icon_size, icon_size)
+
+		var border := Panel.new()
+		border.name = "GoldBorder"
+		var bstyle := StyleBoxFlat.new()
+		bstyle.bg_color = Color(0, 0, 0, 0)
+		bstyle.border_color = Color(1.0, 0.8, 0.2)
+		bstyle.set_border_width_all(3)
+		bstyle.set_corner_radius_all(4)
+		border.add_theme_stylebox_override("panel", bstyle)
+		border.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		border.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		border.visible = (giruda_val == _dp_selected_giruda)
+		btn.add_child(border)
+
+		var captured_val: int = giruda_val
+		btn.pressed.connect(func():
+			_dp_selected_giruda = captured_val
+			_dp_update_giruda_change_highlight(suit_buttons, raise_amount)
+		)
+		suit_grid.add_child(btn)
+		suit_buttons.append({"button": btn, "giruda": giruda_val})
+
+	vbox.add_child(suit_grid)
+
+	# Bid display + arrows
+	var bid_row := HBoxContainer.new()
+	bid_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	bid_row.add_theme_constant_override("separation", 15)
+
+	var down_btn := Button.new()
+	down_btn.text = "▼"
+	down_btn.add_theme_font_size_override("font_size", btn_font)
+	bid_row.add_child(down_btn)
+
+	var bid_label := Label.new()
+	bid_label.name = "DPBidLabel"
+	bid_label.add_theme_font_size_override("font_size", big_font)
+	bid_label.add_theme_font_override("font", _get_bold_font())
+	bid_label.add_theme_color_override("font_color", Color.WHITE)
+	bid_label.custom_minimum_size.x = big_font * 6
+	bid_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	bid_label.text = "%s %d" % [SUIT_DISPLAY.get(_dp_selected_giruda, "?"), _dp_selected_bid]
+	bid_row.add_child(bid_label)
+
+	var up_btn := Button.new()
+	up_btn.text = "▲"
+	up_btn.add_theme_font_size_override("font_size", btn_font)
+	bid_row.add_child(up_btn)
+
+	down_btn.pressed.connect(func():
+		var min_bid: int = _dp.bid + raise_amount
+		if _dp_selected_giruda == BiddingStateScript.Giruda.NO_GIRUDA:
+			min_bid = _dp.bid + raise_amount - 1
+		if _dp_selected_bid > min_bid:
+			_dp_selected_bid -= 1
+			bid_label.text = "%s %d" % [SUIT_DISPLAY.get(_dp_selected_giruda, "?"), _dp_selected_bid]
+	)
+	up_btn.pressed.connect(func():
+		if _dp_selected_bid < MAX_BID:
+			_dp_selected_bid += 1
+			bid_label.text = "%s %d" % [SUIT_DISPLAY.get(_dp_selected_giruda, "?"), _dp_selected_bid]
+	)
+
+	vbox.add_child(bid_row)
+
+	# Buttons
+	var btn_row := HBoxContainer.new()
+	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_row.add_theme_constant_override("separation", 20)
+
+	var skip_btn := Button.new()
+	skip_btn.text = "건너뛰기"
+	skip_btn.add_theme_font_size_override("font_size", btn_font)
+	skip_btn.add_theme_font_override("font", _get_bold_font())
+	btn_row.add_child(skip_btn)
+
+	var change_btn := Button.new()
+	change_btn.text = "변경"
+	change_btn.add_theme_font_size_override("font_size", btn_font)
+	change_btn.add_theme_font_override("font", _get_bold_font())
+	btn_row.add_child(change_btn)
+
+	vbox.add_child(btn_row)
+
+	_dp_panel.add_child(vbox)
+	_dp_panel.visible = false
+	add_child(_dp_panel)
+	await get_tree().process_frame
+	_dp_panel.position = get_viewport_rect().size / 2.0 - _dp_panel.size / 2.0
+	_dp_panel.visible = true
+
+	_dp_awaiting_input = true
+	var result: String = ""
+
+	skip_btn.pressed.connect(func():
+		if _dp_awaiting_input:
+			_dp_awaiting_input = false
+			result = "skip"
+	)
+	change_btn.pressed.connect(func():
+		if _dp_awaiting_input:
+			_dp_awaiting_input = false
+			result = "change"
+	)
+
+	while _dp_awaiting_input:
+		await get_tree().process_frame
+
+	_dp_panel.queue_free()
+	_dp_panel = null
+
+	if result == "change":
+		if raise_amount == 1:
+			_dp.change_giruda_first(_dp_selected_giruda, _dp_selected_bid)
+		else:
+			_dp.change_giruda_second(_dp_selected_giruda, _dp_selected_bid)
+	else:
+		if raise_amount == 1:
+			_dp.skip_first_change()
+
+
+func _dp_update_giruda_change_highlight(suit_buttons: Array, raise_amount: int) -> void:
+	for entry in suit_buttons:
+		var border = entry["button"].get_node("GoldBorder")
+		border.visible = (entry["giruda"] == _dp_selected_giruda)
+	var min_bid: int = _dp.bid + raise_amount
+	if _dp_selected_giruda == BiddingStateScript.Giruda.NO_GIRUDA:
+		min_bid = _dp.bid + raise_amount - 1
+	if _dp_selected_bid < min_bid:
+		_dp_selected_bid = min_bid
+	if _dp_selected_bid > MAX_BID:
+		_dp_selected_bid = MAX_BID
+	var bid_label = _dp_panel.find_child("DPBidLabel", true, false)
+	if bid_label:
+		bid_label.text = "%s %d" % [SUIT_DISPLAY.get(_dp_selected_giruda, "?"), _dp_selected_bid]
+
+
+func _dp_step_show_kitty() -> void:
+	var giruda: int = _dp.giruda
+	_resort_hand_with_giruda(giruda)
+
+	# Rebuild P0 hand with 13 cards
+	for entry in p0_card_nodes:
+		if is_instance_valid(entry["node"]):
+			entry["node"].queue_free()
+	p0_card_nodes.clear()
+
+	var my_cs: Vector2 = CardUtilScript.get_my_card_size(get_viewport())
+	for i in range(hands[0].size()):
+		var card: Control = _create_card_front(my_cs, hands[0][i])
+		var pos: Vector2 = CardUtilScript.get_card_position(get_viewport(), 0, i, hands[0].size())
+		_add_card(card, my_cs, pos)
+		card.z_index = i
+		p0_card_nodes.append({"node": card, "card_data": hands[0][i]})
+
+	for node in kitty_card_nodes:
+		if is_instance_valid(node):
+			node.queue_free()
+	kitty_card_nodes.clear()
+
+	await get_tree().create_timer(0.5).timeout
+
+
+func _dp_step_discard() -> void:
+	_dp_discard_selected.clear()
+	_dp_selected_giruda = _dp.giruda
+	_dp_selected_bid = _dp.bid
+
+	var vh: float = get_viewport_rect().size.y
+	var font_size: int = int(vh / 18.0)
+	var btn_font: int = int(vh / 20.0)
+
+	# Make cards clickable for selection
+	_dp_awaiting_input = true
+	var card_raised: Dictionary = {}
+
+	for entry in p0_card_nodes:
+		var node: Control = entry["node"]
+		var card_data = entry["card_data"]
+		if not is_instance_valid(node):
+			continue
+		node.mouse_filter = Control.MOUSE_FILTER_STOP
+		var base_pos: Vector2 = node.position
+		card_raised[node] = false
+
+		var gui_handler := Callable(func(_event: InputEvent):
+			if not _dp_awaiting_input:
+				return
+			if _event is InputEventMouseButton and _event.pressed and _event.button_index == MOUSE_BUTTON_LEFT:
+				if card_raised[node]:
+					# Deselect
+					card_raised[node] = false
+					_dp_discard_selected.erase(card_data)
+					var tw: Tween = create_tween()
+					tw.tween_property(node, "position:y", base_pos.y, 0.1)
+				elif _dp_discard_selected.size() < 3:
+					# Select
+					card_raised[node] = true
+					_dp_discard_selected.append(card_data)
+					var tw: Tween = create_tween()
+					tw.tween_property(node, "position:y", base_pos.y - vh * 0.04, 0.1)
+				_dp_update_discard_panel()
+		)
+		node.gui_input.connect(gui_handler)
+
+	# Top panel: giruda change option + confirm button
+	_dp_panel = PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0, 0, 0, 0.85)
+	style.set_corner_radius_all(10)
+	style.set_content_margin_all(16)
+	_dp_panel.add_theme_stylebox_override("panel", style)
+	_dp_panel.z_index = 100
+
+	var vbox := VBoxContainer.new()
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", 8)
+
+	var title: Label = _create_label("카드 3장을 버리세요", font_size, Color.YELLOW)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(title)
+
+	var count_label := _create_label("선택: 0 / 3", int(vh / 22.0), Color.WHITE)
+	count_label.name = "DiscardCount"
+	count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(count_label)
+
+	# Giruda change option (optional, +2)
+	if _dp.options.allow_giruda_change_after_kitty:
+		var sep := HSeparator.new()
+		vbox.add_child(sep)
+
+		var giruda_label: Label = _create_label("기루다 변경 (+2)", int(vh / 24.0), Color(0.7, 0.7, 0.7))
+		giruda_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		vbox.add_child(giruda_label)
+
+		var icon_size: int = int(vh / 12.0)
+		var suit_grid := GridContainer.new()
+		suit_grid.columns = 5
+		suit_grid.add_theme_constant_override("h_separation", 6)
+		suit_grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+
+		var suit_buttons: Array = []
+		for giruda_val in [BiddingStateScript.Giruda.SPADE, BiddingStateScript.Giruda.DIAMOND, BiddingStateScript.Giruda.HEART, BiddingStateScript.Giruda.CLUB, BiddingStateScript.Giruda.NO_GIRUDA]:
+			var btn := TextureButton.new()
+			btn.texture_normal = load(SUIT_ICONS[giruda_val])
+			btn.ignore_texture_size = true
+			btn.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+			btn.custom_minimum_size = Vector2(icon_size, icon_size)
+
+			var border := Panel.new()
+			border.name = "GoldBorder"
+			var bstyle := StyleBoxFlat.new()
+			bstyle.bg_color = Color(0, 0, 0, 0)
+			bstyle.border_color = Color(1.0, 0.8, 0.2)
+			bstyle.set_border_width_all(3)
+			bstyle.set_corner_radius_all(4)
+			border.add_theme_stylebox_override("panel", bstyle)
+			border.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			border.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			border.visible = (giruda_val == _dp_selected_giruda)
+			btn.add_child(border)
+
+			var captured_val: int = giruda_val
+			btn.pressed.connect(func():
+				_dp_selected_giruda = captured_val
+				for e in suit_buttons:
+					e["button"].get_node("GoldBorder").visible = (e["giruda"] == _dp_selected_giruda)
+			)
+			suit_grid.add_child(btn)
+			suit_buttons.append({"button": btn, "giruda": giruda_val})
+
+		vbox.add_child(suit_grid)
+
+	# Confirm button
+	var confirm_btn := Button.new()
+	confirm_btn.name = "DiscardConfirm"
+	confirm_btn.text = "확인"
+	confirm_btn.add_theme_font_size_override("font_size", btn_font)
+	confirm_btn.add_theme_font_override("font", _get_bold_font())
+	confirm_btn.disabled = true
+	confirm_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	vbox.add_child(confirm_btn)
+
+	_dp_panel.add_child(vbox)
+	_dp_panel.visible = false
+	add_child(_dp_panel)
+	await get_tree().process_frame
+	var vp: Vector2 = get_viewport_rect().size
+	_dp_panel.position = Vector2(vp.x / 2.0 - _dp_panel.size.x / 2.0, vp.y * 0.05)
+	_dp_panel.visible = true
+
+	confirm_btn.pressed.connect(func():
+		if _dp_discard_selected.size() == 3 and _dp_awaiting_input:
+			_dp_awaiting_input = false
+	)
+
+	while _dp_awaiting_input:
+		await get_tree().process_frame
+
+	# Apply giruda change if different
+	if _dp_selected_giruda != _dp.giruda and _dp.options.allow_giruda_change_after_kitty:
+		var new_bid: int = _dp.bid + 2
+		if _dp_selected_giruda == BiddingStateScript.Giruda.NO_GIRUDA:
+			new_bid = _dp.bid + 1
+		_dp.change_giruda_second(_dp_selected_giruda, new_bid)
+
+	# Clean up
+	_dp_panel.queue_free()
+	_dp_panel = null
+
+	# Remove click handlers and reset positions
+	for entry in p0_card_nodes:
+		var node: Control = entry["node"]
+		if is_instance_valid(node):
+			for conn in node.gui_input.get_connections():
+				node.gui_input.disconnect(conn["callable"])
+			node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+
+func _dp_update_discard_panel() -> void:
+	if not _dp_panel or not is_instance_valid(_dp_panel):
+		return
+	var count_label = _dp_panel.find_child("DiscardCount", true, false)
+	if count_label:
+		count_label.text = "선택: %d / 3" % _dp_discard_selected.size()
+	var confirm_btn = _dp_panel.find_child("DiscardConfirm", true, false)
+	if confirm_btn:
+		confirm_btn.disabled = (_dp_discard_selected.size() != 3)
+
+
+func _dp_step_friend() -> Dictionary:
+	var vh: float = get_viewport_rect().size.y
+	var font_size: int = int(vh / 18.0)
+	var btn_font: int = int(vh / 20.0)
+	var small_font: int = int(vh / 22.0)
+
+	_dp_friend_type = DeclarerPhaseScript.FriendCallType.CARD
+	_dp_friend_suit = CardScript.Suit.SPADE
+	_dp_friend_rank = CardScript.Rank.ACE
+
+	_dp_panel = PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0, 0, 0, 0.85)
+	style.set_corner_radius_all(10)
+	style.set_content_margin_all(20)
+	_dp_panel.add_theme_stylebox_override("panel", style)
+	_dp_panel.z_index = 100
+
+	var vbox := VBoxContainer.new()
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", 10)
+
+	var title: Label = _create_label("프렌드 선택", font_size, Color.YELLOW)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(title)
+
+	# Friend type tabs
+	var tab_row := HBoxContainer.new()
+	tab_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	tab_row.add_theme_constant_override("separation", 8)
+
+	var tab_buttons: Array = []
+	var tab_options := [
+		{"type": DeclarerPhaseScript.FriendCallType.CARD, "label": "카드"},
+		{"type": DeclarerPhaseScript.FriendCallType.FIRST_TRICK_WINNER, "label": "초구"},
+		{"type": DeclarerPhaseScript.FriendCallType.NO_FRIEND, "label": "노프렌드"},
+	]
+
+	var content_container := VBoxContainer.new()
+	content_container.name = "FriendContent"
+	content_container.alignment = BoxContainer.ALIGNMENT_CENTER
+	content_container.add_theme_constant_override("separation", 8)
+
+	for opt in tab_options:
+		var btn := Button.new()
+		btn.text = opt["label"]
+		btn.add_theme_font_size_override("font_size", small_font)
+		btn.add_theme_font_override("font", _get_bold_font())
+		var captured_type: int = opt["type"]
+		btn.pressed.connect(func():
+			_dp_friend_type = captured_type
+			_dp_update_friend_tabs(tab_buttons, content_container)
+		)
+		tab_row.add_child(btn)
+		tab_buttons.append({"button": btn, "type": opt["type"]})
+
+	vbox.add_child(tab_row)
+	vbox.add_child(content_container)
+
+	# Confirm button
+	var confirm_btn := Button.new()
+	confirm_btn.text = "확정"
+	confirm_btn.add_theme_font_size_override("font_size", btn_font)
+	confirm_btn.add_theme_font_override("font", _get_bold_font())
+	confirm_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	vbox.add_child(confirm_btn)
+
+	_dp_panel.add_child(vbox)
+	_dp_panel.visible = false
+	add_child(_dp_panel)
+
+	_dp_update_friend_tabs(tab_buttons, content_container)
+
+	await get_tree().process_frame
+	_dp_panel.position = get_viewport_rect().size / 2.0 - _dp_panel.size / 2.0
+	_dp_panel.visible = true
+
+	_dp_awaiting_input = true
+	confirm_btn.pressed.connect(func():
+		if _dp_awaiting_input:
+			_dp_awaiting_input = false
+	)
+
+	while _dp_awaiting_input:
+		await get_tree().process_frame
+
+	_dp_panel.queue_free()
+	_dp_panel = null
+
+	match _dp_friend_type:
+		DeclarerPhaseScript.FriendCallType.CARD:
+			var card
+			if _dp_friend_suit < 0:
+				card = CardScript.create_joker()
+			else:
+				card = CardScript.new(_dp_friend_suit, _dp_friend_rank)
+			return {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": card}
+		DeclarerPhaseScript.FriendCallType.FIRST_TRICK_WINNER:
+			return {"type": DeclarerPhaseScript.FriendCallType.FIRST_TRICK_WINNER}
+		DeclarerPhaseScript.FriendCallType.NO_FRIEND:
+			return {"type": DeclarerPhaseScript.FriendCallType.NO_FRIEND}
+		_:
+			return {"type": DeclarerPhaseScript.FriendCallType.NO_FRIEND}
+
+
+func _dp_update_friend_tabs(tab_buttons: Array, content: VBoxContainer) -> void:
+	# Highlight active tab
+	for entry in tab_buttons:
+		var btn: Button = entry["button"]
+		if entry["type"] == _dp_friend_type:
+			btn.add_theme_color_override("font_color", Color.YELLOW)
+		else:
+			btn.remove_theme_color_override("font_color")
+
+	# Clear content
+	for child in content.get_children():
+		child.queue_free()
+
+	var vh: float = get_viewport_rect().size.y
+	var small_font: int = int(vh / 22.0)
+
+	if _dp_friend_type == DeclarerPhaseScript.FriendCallType.CARD:
+		# Suit selection
+		var icon_size: int = int(vh / 12.0)
+		var suit_row := HBoxContainer.new()
+		suit_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		suit_row.add_theme_constant_override("separation", 8)
+
+		var suit_buttons: Array = []
+		for suit_val in [CardScript.Suit.SPADE, CardScript.Suit.DIAMOND, CardScript.Suit.HEART, CardScript.Suit.CLUB]:
+			var btn := TextureButton.new()
+			var giruda_key: int = _card_suit_to_giruda(suit_val)
+			btn.texture_normal = load(SUIT_ICONS[giruda_key])
+			btn.ignore_texture_size = true
+			btn.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+			btn.custom_minimum_size = Vector2(icon_size, icon_size)
+
+			var border := Panel.new()
+			border.name = "GoldBorder"
+			var bstyle := StyleBoxFlat.new()
+			bstyle.bg_color = Color(0, 0, 0, 0)
+			bstyle.border_color = Color(1.0, 0.8, 0.2)
+			bstyle.set_border_width_all(3)
+			bstyle.set_corner_radius_all(4)
+			border.add_theme_stylebox_override("panel", bstyle)
+			border.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			border.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			border.visible = (suit_val == _dp_friend_suit)
+			btn.add_child(border)
+
+			var captured_suit: int = suit_val
+			btn.pressed.connect(func():
+				_dp_friend_suit = captured_suit
+				for e in suit_buttons:
+					e["button"].get_node("GoldBorder").visible = (e["suit"] == _dp_friend_suit)
+			)
+			suit_row.add_child(btn)
+			suit_buttons.append({"button": btn, "suit": suit_val})
+
+		# Joker button
+		var joker_btn := Button.new()
+		joker_btn.text = "조커"
+		joker_btn.add_theme_font_size_override("font_size", small_font)
+		joker_btn.add_theme_font_override("font", _get_bold_font())
+		joker_btn.custom_minimum_size = Vector2(icon_size, icon_size)
+		joker_btn.pressed.connect(func():
+			_dp_friend_suit = -1
+			_dp_friend_rank = -1
+			for e in suit_buttons:
+				e["button"].get_node("GoldBorder").visible = false
+		)
+		suit_row.add_child(joker_btn)
+
+		content.add_child(suit_row)
+
+		# Rank selection
+		var rank_row := HBoxContainer.new()
+		rank_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		rank_row.add_theme_constant_override("separation", 4)
+
+		for rank_val in [CardScript.Rank.ACE, CardScript.Rank.KING, CardScript.Rank.QUEEN, CardScript.Rank.JACK, CardScript.Rank.TEN, CardScript.Rank.NINE, CardScript.Rank.EIGHT, CardScript.Rank.SEVEN, CardScript.Rank.SIX, CardScript.Rank.FIVE, CardScript.Rank.FOUR, CardScript.Rank.THREE, CardScript.Rank.TWO]:
+			var btn := Button.new()
+			btn.text = RANK_DISPLAY[rank_val]
+			btn.add_theme_font_size_override("font_size", small_font)
+			btn.custom_minimum_size = Vector2(int(vh / 20.0), int(vh / 16.0))
+			var captured_rank: int = rank_val
+			btn.pressed.connect(func():
+				_dp_friend_rank = captured_rank
+				_dp_friend_suit = _dp_friend_suit if _dp_friend_suit >= 0 else CardScript.Suit.SPADE
+			)
+			rank_row.add_child(btn)
+
+		content.add_child(rank_row)
+
+	elif _dp_friend_type == DeclarerPhaseScript.FriendCallType.FIRST_TRICK_WINNER:
+		var label: Label = _create_label("첫 트릭의 승자가 프렌드", small_font, Color.WHITE)
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		content.add_child(label)
+
+	elif _dp_friend_type == DeclarerPhaseScript.FriendCallType.NO_FRIEND:
+		var label: Label = _create_label("프렌드 없이 혼자 진행", small_font, Color.WHITE)
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		content.add_child(label)
+
+
+func _dp_show_result() -> void:
+	var final_giruda: int = _dp.giruda
+	var final_bid: int = _dp.bid
+	var friend_type: int = _dp.friend_call_type
+	var friend_card = _dp.friend_call_card
+
+	var friend_text := ""
+	match friend_type:
+		DeclarerPhaseScript.FriendCallType.CARD:
+			if friend_card.is_joker:
+				friend_text = "조커 프렌드"
+			elif CardValidatorScript.is_mighty(friend_card, final_giruda):
+				friend_text = "마이티 프렌드"
+			else:
+				var card_str: String = "%s %s" % [SUIT_DISPLAY.get(_card_suit_to_giruda(friend_card.suit), "?"), _rank_name(friend_card.rank)]
+				friend_text = "%s 프렌드" % card_str
+		DeclarerPhaseScript.FriendCallType.FIRST_TRICK_WINNER:
+			friend_text = "초구 프렌드"
+		DeclarerPhaseScript.FriendCallType.NO_FRIEND:
+			friend_text = "노프렌드"
+
+	var vh: float = get_viewport_rect().size.y
+	var font_size: int = int(vh / 18.0)
+	var small_font: int = int(vh / 22.0)
+
+	var panel := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0, 0, 0, 0.75)
+	style.set_corner_radius_all(10)
+	style.set_content_margin_all(20)
+	panel.add_theme_stylebox_override("panel", style)
+	panel.z_index = 110
+
+	var vbox := VBoxContainer.new()
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", 10)
+
+	var bid_label: Label = _create_label("공약: %s %d" % [SUIT_DISPLAY.get(final_giruda, "?"), final_bid], font_size, Color.WHITE)
+	bid_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(bid_label)
+
+	var sep := HSeparator.new()
+	vbox.add_child(sep)
+
+	var friend_title: Label = _create_label("프렌드", small_font, Color(0.8, 0.8, 0.8))
+	friend_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(friend_title)
+
+	if friend_card and friend_type == DeclarerPhaseScript.FriendCallType.CARD:
+		var friend_card_size: Vector2 = CardUtilScript.get_card_size(get_viewport())
+		var card_img := TextureRect.new()
+		card_img.texture = CardTextureScript.get_texture(friend_card)
+		card_img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		card_img.custom_minimum_size = friend_card_size
+		card_img.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		vbox.add_child(card_img)
+
+	var friend_label: Label = _create_label(friend_text, font_size, Color.YELLOW)
+	friend_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(friend_label)
+
+	panel.add_child(vbox)
+	panel.visible = false
+	add_child(panel)
+	await get_tree().process_frame
+	if friend_card and friend_type == DeclarerPhaseScript.FriendCallType.CARD:
+		var card_img = vbox.get_child(3)
+		if card_img and card_img is TextureRect:
+			card_img.size = CardUtilScript.get_card_size(get_viewport())
+	await get_tree().process_frame
+	panel.position = get_viewport_rect().size / 2.0 - panel.size / 2.0
+	panel.visible = true
+	_play_sfx(_sfx_elected)
+
+	await get_tree().create_timer(4.0).timeout
+	panel.queue_free()
+
+
+func _rebuild_p0_hand() -> void:
+	for entry in p0_card_nodes:
+		if is_instance_valid(entry["node"]):
+			entry["node"].queue_free()
+	p0_card_nodes.clear()
+
+	var my_cs: Vector2 = CardUtilScript.get_my_card_size(get_viewport())
+	for i in range(hands[0].size()):
+		var card: Control = _create_card_front(my_cs, hands[0][i])
+		var pos: Vector2 = CardUtilScript.get_card_position(get_viewport(), 0, i, hands[0].size())
+		_add_card(card, my_cs, pos)
+		card.z_index = i
+		p0_card_nodes.append({"node": card, "card_data": hands[0][i]})
