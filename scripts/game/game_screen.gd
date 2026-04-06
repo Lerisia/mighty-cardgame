@@ -622,11 +622,11 @@ func _bot_declarer_phase(declarer: int, giruda: int, bid: int) -> void:
 	vbox.add_child(friend_title)
 
 	if friend_card:
-		var card_size: Vector2 = CardUtilScript.get_card_size(get_viewport())
+		var friend_card_size: Vector2 = CardUtilScript.get_card_size(get_viewport())
 		var card_img := TextureRect.new()
 		card_img.texture = CardTextureScript.get_texture(friend_card)
 		card_img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		card_img.custom_minimum_size = card_size
+		card_img.custom_minimum_size = friend_card_size
 		card_img.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		vbox.add_child(card_img)
 
