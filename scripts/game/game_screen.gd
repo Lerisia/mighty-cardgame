@@ -1215,16 +1215,12 @@ func _player_declarer_phase(giruda: int, bid: int) -> void:
 	else:
 		_dp.skip_first_change()
 
-	# Step 2: reveal kitty + absorb
+	# Step 2: reveal kitty + absorb (animation handles hands[0] update)
 	_dp.reveal_kitty()
-	hands[0] = _dp.hand.duplicate()
 	await _dp_step_show_kitty()
+	hands[0] = _dp.hand.duplicate()
 
-	# Step 3: second giruda change (separate panel, same as step 1)
-	if _dp.options.allow_giruda_change_after_kitty:
-		await _dp_step_giruda_change(2)
-
-	# Step 3b: discard 3 cards
+	# Step 3: second giruda change + discard 3 cards (combined panel)
 	await _dp_step_discard()
 
 	# Step 4: friend selection
@@ -1435,10 +1431,14 @@ func _dp_step_show_kitty() -> void:
 
 func _dp_step_discard() -> void:
 	_dp_discard_selected.clear()
+	_dp_selected_giruda = _dp.giruda
+	_dp_selected_bid = _dp.bid
 
 	var vh: float = get_viewport_rect().size.y
 	var font_size: int = int(vh / 18.0)
 	var btn_font: int = int(vh / 20.0)
+	var icon_size: int = int(vh / 8.0)
+	var big_font: int = int(vh / 12.0)
 	var raise_y: float = vh * 0.04
 
 	# Pre-select kitty cards (they're already raised from _move_kitty_to_declarer)
@@ -1488,20 +1488,20 @@ func _dp_step_discard() -> void:
 		)
 		node.gui_input.connect(gui_handler)
 
-	# Top panel: title + count + confirm
+	# Panel: same style as giruda change panel, with discard integrated
 	_dp_panel = PanelContainer.new()
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0, 0, 0, 0.85)
 	style.set_corner_radius_all(10)
-	style.set_content_margin_all(16)
+	style.set_content_margin_all(20)
 	_dp_panel.add_theme_stylebox_override("panel", style)
 	_dp_panel.z_index = 100
 
 	var vbox := VBoxContainer.new()
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", 8)
+	vbox.add_theme_constant_override("separation", 10)
 
-	var title: Label = _create_label("카드 3장을 버리세요", font_size, Color.YELLOW)
+	var title: Label = _create_label("버릴 카드 3장을 선택하세요", font_size, Color.YELLOW)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
 
@@ -1510,6 +1510,100 @@ func _dp_step_discard() -> void:
 	count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(count_label)
 
+	# Giruda change section (same style as step 1)
+	if _dp.options.allow_giruda_change_after_kitty:
+		var sep := HSeparator.new()
+		vbox.add_child(sep)
+
+		var giruda_title: Label = _create_label("기루다 변경 (+2)", font_size, Color(0.8, 0.8, 0.8))
+		giruda_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		vbox.add_child(giruda_title)
+
+		var current_label: Label = _create_label("현재: %s %d" % [SUIT_DISPLAY.get(_dp.giruda, "?"), _dp.bid], int(vh / 22.0), Color(0.7, 0.7, 0.7))
+		current_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		vbox.add_child(current_label)
+
+		# Suit grid
+		var suit_grid := GridContainer.new()
+		suit_grid.columns = 5
+		suit_grid.add_theme_constant_override("h_separation", 8)
+		suit_grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+
+		var suit_buttons: Array = []
+		for giruda_val in [BiddingStateScript.Giruda.SPADE, BiddingStateScript.Giruda.DIAMOND, BiddingStateScript.Giruda.HEART, BiddingStateScript.Giruda.CLUB, BiddingStateScript.Giruda.NO_GIRUDA]:
+			var btn := TextureButton.new()
+			btn.texture_normal = load(SUIT_ICONS[giruda_val])
+			btn.ignore_texture_size = true
+			btn.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+			btn.custom_minimum_size = Vector2(icon_size, icon_size)
+
+			var border := Panel.new()
+			border.name = "GoldBorder"
+			var bstyle := StyleBoxFlat.new()
+			bstyle.bg_color = Color(0, 0, 0, 0)
+			bstyle.border_color = Color(1.0, 0.8, 0.2)
+			bstyle.set_border_width_all(3)
+			bstyle.set_corner_radius_all(4)
+			border.add_theme_stylebox_override("panel", bstyle)
+			border.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			border.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			border.visible = (giruda_val == _dp_selected_giruda)
+			btn.add_child(border)
+
+			var captured_val: int = giruda_val
+			btn.pressed.connect(func():
+				_dp_selected_giruda = captured_val
+				for e in suit_buttons:
+					e["button"].get_node("GoldBorder").visible = (e["giruda"] == _dp_selected_giruda)
+				_dp_update_discard_bid_label()
+			)
+			suit_grid.add_child(btn)
+			suit_buttons.append({"button": btn, "giruda": giruda_val})
+
+		vbox.add_child(suit_grid)
+
+		# Bid display + arrows
+		var bid_row := HBoxContainer.new()
+		bid_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		bid_row.add_theme_constant_override("separation", 15)
+
+		var down_btn := Button.new()
+		down_btn.text = "▼"
+		down_btn.add_theme_font_size_override("font_size", btn_font)
+		bid_row.add_child(down_btn)
+
+		var bid_label := Label.new()
+		bid_label.name = "DPBidLabel"
+		bid_label.add_theme_font_size_override("font_size", big_font)
+		bid_label.add_theme_font_override("font", _get_bold_font())
+		bid_label.add_theme_color_override("font_color", Color.WHITE)
+		bid_label.custom_minimum_size.x = big_font * 6
+		bid_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		bid_label.text = "%s %d" % [SUIT_DISPLAY.get(_dp_selected_giruda, "?"), _dp_selected_bid]
+		bid_row.add_child(bid_label)
+
+		var up_btn := Button.new()
+		up_btn.text = "▲"
+		up_btn.add_theme_font_size_override("font_size", btn_font)
+		bid_row.add_child(up_btn)
+
+		down_btn.pressed.connect(func():
+			var min_bid: int = _dp.bid + 2
+			if _dp_selected_giruda == BiddingStateScript.Giruda.NO_GIRUDA:
+				min_bid = _dp.bid + 1
+			if _dp_selected_bid > min_bid:
+				_dp_selected_bid -= 1
+				_dp_update_discard_bid_label()
+		)
+		up_btn.pressed.connect(func():
+			if _dp_selected_bid < MAX_BID:
+				_dp_selected_bid += 1
+				_dp_update_discard_bid_label()
+		)
+
+		vbox.add_child(bid_row)
+
+	# Confirm button (enabled only when 3 cards selected)
 	var confirm_btn := Button.new()
 	confirm_btn.name = "DiscardConfirm"
 	confirm_btn.text = "확인"
@@ -1523,8 +1617,7 @@ func _dp_step_discard() -> void:
 	_dp_panel.visible = false
 	add_child(_dp_panel)
 	await get_tree().process_frame
-	var vp: Vector2 = get_viewport_rect().size
-	_dp_panel.position = Vector2(vp.x / 2.0 - _dp_panel.size.x / 2.0, vp.y * 0.05)
+	_dp_panel.position = get_viewport_rect().size / 2.0 - _dp_panel.size / 2.0
 	_dp_panel.visible = true
 
 	confirm_btn.pressed.connect(func():
@@ -1534,6 +1627,10 @@ func _dp_step_discard() -> void:
 
 	while _dp_awaiting_input:
 		await get_tree().process_frame
+
+	# Apply giruda change if different
+	if _dp_selected_giruda != _dp.giruda and _dp.options.allow_giruda_change_after_kitty:
+		_dp.change_giruda_second(_dp_selected_giruda, _dp_selected_bid)
 
 	_dp_panel.queue_free()
 	_dp_panel = null
@@ -1555,6 +1652,21 @@ func _dp_update_discard_panel() -> void:
 	var confirm_btn = _dp_panel.find_child("DiscardConfirm", true, false)
 	if confirm_btn:
 		confirm_btn.disabled = (_dp_discard_selected.size() != 3)
+
+
+func _dp_update_discard_bid_label() -> void:
+	if not _dp_panel or not is_instance_valid(_dp_panel):
+		return
+	var min_bid: int = _dp.bid + 2
+	if _dp_selected_giruda == BiddingStateScript.Giruda.NO_GIRUDA:
+		min_bid = _dp.bid + 1
+	if _dp_selected_bid < min_bid:
+		_dp_selected_bid = min_bid
+	if _dp_selected_bid > MAX_BID:
+		_dp_selected_bid = MAX_BID
+	var bid_label = _dp_panel.find_child("DPBidLabel", true, false)
+	if bid_label:
+		bid_label.text = "%s %d" % [SUIT_DISPLAY.get(_dp_selected_giruda, "?"), _dp_selected_bid]
 
 
 func _dp_step_friend() -> Dictionary:
