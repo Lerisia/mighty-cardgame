@@ -1410,14 +1410,13 @@ func _dp_step_giruda_change(raise_amount: int) -> void:
 	_dp_panel.queue_free()
 	_dp_panel = null
 
-	if result == "change":
-		var changed: bool = false
+	var actually_changed: bool = _dp_selected_giruda != _dp.giruda or _dp_selected_bid != _dp.bid
+	if result == "change" and actually_changed:
 		if raise_amount == 1:
-			changed = _dp.change_giruda_first(_dp_selected_giruda, _dp_selected_bid)
-			if not changed:
+			if not _dp.change_giruda_first(_dp_selected_giruda, _dp_selected_bid):
 				_dp.skip_first_change()
 		else:
-			changed = _dp.change_giruda_second(_dp_selected_giruda, _dp_selected_bid)
+			_dp.change_giruda_second(_dp_selected_giruda, _dp_selected_bid)
 	else:
 		if raise_amount == 1:
 			_dp.skip_first_change()
@@ -1453,11 +1452,16 @@ func _dp_step_discard() -> void:
 	_dp_selected_giruda = _dp.giruda
 	_dp_selected_bid = _dp.bid
 
-	# Fix z_index so rightmost cards are on top (matching visual overlap)
-	for i in range(p0_card_nodes.size()):
-		var node: Control = p0_card_nodes[i]["node"]
-		if is_instance_valid(node):
-			node.z_index = i
+	# Fix z_index based on sorted hand order (not append order)
+	for entry in p0_card_nodes:
+		var node: Control = entry["node"]
+		var card_data = entry["card_data"]
+		if not is_instance_valid(node):
+			continue
+		for j in range(hands[0].size()):
+			if _cards_equal(hands[0][j], card_data):
+				node.z_index = j
+				break
 
 	var vh: float = get_viewport_rect().size.y
 	var font_size: int = int(vh / 18.0)
@@ -1928,6 +1932,8 @@ func _dp_step_friend() -> Dictionary:
 	select_card_btn.add_theme_font_override("font", _get_bold_font())
 	select_card_btn.disabled = _dp_is_card_in_hand_or_discard_specific(_dp_friend_suit, _dp_friend_rank)
 	select_card_btn.pressed.connect(func():
+		if _dp_is_card_in_hand_or_discard_specific(_dp_friend_suit, _dp_friend_rank):
+			return
 		chosen_result = {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": CardScript.new(_dp_friend_suit, _dp_friend_rank)}
 		for b in all_btns:
 			b.remove_theme_color_override("font_color")
