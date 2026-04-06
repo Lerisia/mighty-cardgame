@@ -33,9 +33,9 @@ func test_default_allow_player_friend() -> void:
 	assert_bool(opts.allow_player_friend).is_true()
 
 
-func test_default_allow_fake_friend() -> void:
+func test_default_disallow_fake_friend() -> void:
 	var opts = GameOptionsScript.new()
-	assert_bool(opts.allow_fake_friend).is_true()
+	assert_bool(opts.allow_fake_friend).is_false()
 
 
 func test_default_allow_last_trick_friend() -> void:

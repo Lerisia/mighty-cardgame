@@ -13,7 +13,7 @@ var bid_20_run_double: bool = false
 # === Friend ===
 
 var allow_player_friend: bool = true
-var allow_fake_friend: bool = true
+var allow_fake_friend: bool = false
 var allow_last_trick_friend: bool = false
 
 # === Special Cards ===

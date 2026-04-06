@@ -215,16 +215,16 @@ func test_allow_player_friend_default() -> void:
 
 # --- Fake friend restriction ---
 
-func test_fake_friend_allowed_by_default() -> void:
+func test_fake_friend_rejected_by_default() -> void:
 	var opts = GameOptionsScript.new()
 	var phase = _make_phase_with_options(13, BiddingStateScript.Giruda.SPADE, opts)
 	phase.skip_first_change()
 	phase.reveal_kitty()
-	# Call a card that is in own hand as friend
+	# Call a card that is in own hand as friend — should be rejected by default
 	var friend_card = phase.hand[3]
 	var to_discard := [phase.hand[0], phase.hand[1], phase.hand[2]]
 	var friend_call := {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": friend_card}
-	assert_bool(phase.finalize(to_discard, friend_call)).is_true()
+	assert_bool(phase.finalize(to_discard, friend_call)).is_false()
 
 
 func test_fake_friend_own_hand_rejected() -> void:

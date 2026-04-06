@@ -1642,9 +1642,10 @@ func _dp_step_discard() -> void:
 	while _dp_awaiting_input:
 		await get_tree().process_frame
 
-	# Apply giruda change if different
+	# Apply giruda/bid change
 	if _dp_selected_giruda != _dp.giruda and _dp.options.allow_giruda_change_after_kitty:
-		_dp.change_giruda_second(_dp_selected_giruda, _dp_selected_bid)
+		if not _dp.change_giruda_second(_dp_selected_giruda, _dp_selected_bid):
+			push_warning("change_giruda_second failed: giruda=%d bid=%d (current: giruda=%d bid=%d)" % [_dp_selected_giruda, _dp_selected_bid, _dp.giruda, _dp.bid])
 
 	_dp_panel.queue_free()
 	_dp_panel = null
@@ -1690,6 +1691,7 @@ func _dp_update_discard_bid_label() -> void:
 
 func _dp_step_friend() -> Dictionary:
 	var vh: float = get_viewport_rect().size.y
+	var vw: float = get_viewport_rect().size.x
 	var font_size: int = int(vh / 18.0)
 	var btn_font: int = int(vh / 20.0)
 	var small_font: int = int(vh / 22.0)
@@ -1705,10 +1707,11 @@ func _dp_step_friend() -> Dictionary:
 	style.set_content_margin_all(20)
 	_dp_panel.add_theme_stylebox_override("panel", style)
 	_dp_panel.z_index = 100
+	_dp_panel.custom_minimum_size = Vector2(vw * 0.6, vh * 0.5)
 
 	var vbox := VBoxContainer.new()
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", 10)
+	vbox.add_theme_constant_override("separation", 12)
 
 	var title: Label = _create_label("프렌드 선택", font_size, Color.YELLOW)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1717,7 +1720,7 @@ func _dp_step_friend() -> Dictionary:
 	# Friend type tabs
 	var tab_row := HBoxContainer.new()
 	tab_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	tab_row.add_theme_constant_override("separation", 8)
+	tab_row.add_theme_constant_override("separation", 20)
 
 	var tab_buttons: Array = []
 	var tab_options := [
@@ -1729,12 +1732,13 @@ func _dp_step_friend() -> Dictionary:
 	var content_container := VBoxContainer.new()
 	content_container.name = "FriendContent"
 	content_container.alignment = BoxContainer.ALIGNMENT_CENTER
-	content_container.add_theme_constant_override("separation", 8)
+	content_container.add_theme_constant_override("separation", 10)
+	content_container.custom_minimum_size = Vector2(0, vh * 0.2)
 
 	for opt in tab_options:
 		var btn := Button.new()
 		btn.text = opt["label"]
-		btn.add_theme_font_size_override("font_size", small_font)
+		btn.add_theme_font_size_override("font_size", btn_font)
 		btn.add_theme_font_override("font", _get_bold_font())
 		var captured_type: int = opt["type"]
 		btn.pressed.connect(func():
@@ -1765,10 +1769,20 @@ func _dp_step_friend() -> Dictionary:
 	_dp_panel.position = get_viewport_rect().size / 2.0 - _dp_panel.size / 2.0
 	_dp_panel.visible = true
 
+	var warn_label: Label = _create_label("", int(vh / 24.0), Color(1.0, 0.4, 0.4))
+	warn_label.name = "FriendWarn"
+	warn_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(warn_label)
+
 	_dp_awaiting_input = true
 	confirm_btn.pressed.connect(func():
-		if _dp_awaiting_input:
-			_dp_awaiting_input = false
+		if not _dp_awaiting_input:
+			return
+		if _dp_friend_type == DeclarerPhaseScript.FriendCallType.CARD:
+			if _dp_is_card_in_hand_or_discard():
+				warn_label.text = "자기가 가진 카드는 선택할 수 없습니다"
+				return
+		_dp_awaiting_input = false
 	)
 
 	while _dp_awaiting_input:
@@ -1793,6 +1807,23 @@ func _dp_step_friend() -> Dictionary:
 			return {"type": DeclarerPhaseScript.FriendCallType.NO_FRIEND}
 
 
+func _dp_is_card_in_hand_or_discard() -> bool:
+	var target_card
+	if _dp_friend_suit < 0:
+		target_card = CardScript.create_joker()
+	else:
+		target_card = CardScript.new(_dp_friend_suit, _dp_friend_rank)
+	# Check remaining hand (dp.hand still has 13 cards at this point)
+	for card in _dp.hand:
+		if _cards_equal(card, target_card):
+			return true
+	# Check discarded cards
+	for card in _dp_discard_selected:
+		if _cards_equal(card, target_card):
+			return true
+	return false
+
+
 func _dp_update_friend_tabs(tab_buttons: Array, content: VBoxContainer) -> void:
 	# Highlight active tab
 	for entry in tab_buttons:
@@ -1811,7 +1842,7 @@ func _dp_update_friend_tabs(tab_buttons: Array, content: VBoxContainer) -> void:
 
 	if _dp_friend_type == DeclarerPhaseScript.FriendCallType.CARD:
 		# Suit selection
-		var icon_size: int = int(vh / 12.0)
+		var icon_size: int = int(vh / 8.0)
 		var suit_row := HBoxContainer.new()
 		suit_row.alignment = BoxContainer.ALIGNMENT_CENTER
 		suit_row.add_theme_constant_override("separation", 8)
