@@ -32,6 +32,7 @@ var placed_cards: Array = []
 var p0_card_nodes: Array = []
 var crown_nodes: Array = []
 var kitty_card_nodes: Array = []
+var bot_hand_nodes: Dictionary = {1: [], 2: [], 3: [], 4: []}
 var name_labels: Array = []
 var score_labels: Array = []
 var player_card_counts: Array = [0, 0, 0, 0, 0]
@@ -317,6 +318,7 @@ func _handle_deal_miss() -> void:
 	placed_cards.clear()
 	p0_card_nodes.clear()
 	kitty_card_nodes.clear()
+	bot_hand_nodes = {1: [], 2: [], 3: [], 4: []}
 	for label in name_labels:
 		if is_instance_valid(label):
 			label.queue_free()
@@ -722,8 +724,8 @@ func _move_kitty_to_declarer(declarer: int) -> void:
 
 	if declarer != 0:
 		var existing_backs: Array = []
-		for card in placed_cards:
-			if is_instance_valid(card) and not kitty_card_nodes.has(card):
+		for card in bot_hand_nodes[declarer]:
+			if is_instance_valid(card):
 				existing_backs.append(card)
 
 		var tween: Tween = create_tween()
@@ -954,6 +956,7 @@ func _play_deal_animation() -> void:
 					else:
 						sz = card_size
 						card = _create_card_back(sz)
+						bot_hand_nodes[target_player].append(card)
 					_add_card(card, sz, deck_pos)
 					var tw: Tween = create_tween()
 					tw.tween_property(card, "position", target_pos, DEAL_FLY_DURATION).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
