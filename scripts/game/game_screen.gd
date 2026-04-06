@@ -324,6 +324,7 @@ func _do_bot_bid(bot_player: int) -> void:
 		_show_player_bid(bot_player, g, after_bid)
 		_play_sfx(_sfx_bid)
 
+	_update_bid_display()
 	_continue_bidding()
 
 
