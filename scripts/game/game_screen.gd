@@ -1510,6 +1510,9 @@ func _dp_step_discard() -> void:
 		if not is_instance_valid(node):
 			continue
 		node.mouse_filter = Control.MOUSE_FILTER_STOP
+		for child in node.get_children():
+			if child is Control:
+				child.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var base_pos_y: float = CardUtilScript.get_card_position(get_viewport(), 0, 0, hands[0].size()).y
 
 		var gui_handler := Callable(func(_event: InputEvent):
