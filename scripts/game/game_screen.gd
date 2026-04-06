@@ -575,13 +575,14 @@ func _start_declarer_phase() -> void:
 
 	_resort_hand_with_giruda(giruda)
 	await get_tree().create_timer(0.5).timeout
-	await _move_kitty_to_declarer(declarer)
-	await get_tree().create_timer(0.5).timeout
-	_hide_announcement()
 
 	if declarer != 0:
+		await _move_kitty_to_declarer(declarer)
+		await get_tree().create_timer(0.5).timeout
+		_hide_announcement()
 		await _bot_declarer_phase(declarer, giruda, bid)
 	else:
+		_hide_announcement()
 		await _player_declarer_phase(giruda, bid)
 
 
@@ -1424,10 +1425,39 @@ func _dp_update_giruda_change_highlight(suit_buttons: Array, raise_amount: int) 
 
 
 func _dp_step_show_kitty() -> void:
+	# Show kitty cards face-up in center briefly
+	var center: Vector2 = CardUtilScript.get_center(get_viewport())
+	var cs: Vector2 = CardUtilScript.get_card_size(get_viewport())
+	var spacing: float = cs.x * 1.1
+
+	for node in kitty_card_nodes:
+		if is_instance_valid(node):
+			node.queue_free()
+	kitty_card_nodes.clear()
+
+	var kitty_nodes: Array = []
+	for i in range(kitty.size()):
+		var card_node: Control = _create_card_front(cs, kitty[i])
+		var pos: Vector2 = Vector2(center.x - spacing * 1.5 + spacing * i, center.y - cs.y * 0.5)
+		_add_card(card_node, cs, pos)
+		card_node.z_index = 120
+		kitty_nodes.append(card_node)
+	_play_sfx(_sfx_deal)
+
+	await get_tree().create_timer(1.5).timeout
+
+	# Fade out kitty display
+	var fade_tween: Tween = create_tween().set_parallel(true)
+	for node in kitty_nodes:
+		fade_tween.tween_property(node, "modulate:a", 0.0, 0.3)
+	await fade_tween.finished
+	for node in kitty_nodes:
+		node.queue_free()
+
+	# Now rebuild P0 hand with 13 cards
 	var giruda: int = _dp.giruda
 	_resort_hand_with_giruda(giruda)
 
-	# Rebuild P0 hand with 13 cards
 	for entry in p0_card_nodes:
 		if is_instance_valid(entry["node"]):
 			entry["node"].queue_free()
@@ -1440,13 +1470,6 @@ func _dp_step_show_kitty() -> void:
 		_add_card(card, my_cs, pos)
 		card.z_index = i
 		p0_card_nodes.append({"node": card, "card_data": hands[0][i]})
-
-	for node in kitty_card_nodes:
-		if is_instance_valid(node):
-			node.queue_free()
-	kitty_card_nodes.clear()
-
-	await get_tree().create_timer(0.5).timeout
 
 
 func _dp_step_discard() -> void:
