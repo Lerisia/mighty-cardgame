@@ -1438,6 +1438,12 @@ func _dp_step_discard() -> void:
 	_dp_selected_giruda = _dp.giruda
 	_dp_selected_bid = _dp.bid
 
+	# Fix z_index so rightmost cards are on top (matching visual overlap)
+	for i in range(p0_card_nodes.size()):
+		var node: Control = p0_card_nodes[i]["node"]
+		if is_instance_valid(node):
+			node.z_index = i
+
 	var vh: float = get_viewport_rect().size.y
 	var font_size: int = int(vh / 18.0)
 	var btn_font: int = int(vh / 20.0)
