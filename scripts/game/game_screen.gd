@@ -1410,10 +1410,13 @@ func _dp_step_giruda_change(raise_amount: int) -> void:
 	_dp_panel = null
 
 	if result == "change":
+		var changed: bool = false
 		if raise_amount == 1:
-			_dp.change_giruda_first(_dp_selected_giruda, _dp_selected_bid)
+			changed = _dp.change_giruda_first(_dp_selected_giruda, _dp_selected_bid)
+			if not changed:
+				_dp.skip_first_change()
 		else:
-			_dp.change_giruda_second(_dp_selected_giruda, _dp_selected_bid)
+			changed = _dp.change_giruda_second(_dp_selected_giruda, _dp_selected_bid)
 	else:
 		if raise_amount == 1:
 			_dp.skip_first_change()
