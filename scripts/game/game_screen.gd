@@ -1220,7 +1220,11 @@ func _player_declarer_phase(giruda: int, bid: int) -> void:
 	hands[0] = _dp.hand.duplicate()
 	await _dp_step_show_kitty()
 
-	# Step 3: second giruda change + discard 3
+	# Step 3: second giruda change (separate panel, same as step 1)
+	if _dp.options.allow_giruda_change_after_kitty:
+		await _dp_step_giruda_change(2)
+
+	# Step 3b: discard 3 cards
 	await _dp_step_discard()
 
 	# Step 4: friend selection
@@ -1431,16 +1435,32 @@ func _dp_step_show_kitty() -> void:
 
 func _dp_step_discard() -> void:
 	_dp_discard_selected.clear()
-	_dp_selected_giruda = _dp.giruda
-	_dp_selected_bid = _dp.bid
 
 	var vh: float = get_viewport_rect().size.y
 	var font_size: int = int(vh / 18.0)
 	var btn_font: int = int(vh / 20.0)
+	var raise_y: float = vh * 0.04
+
+	# Pre-select kitty cards (they're already raised from _move_kitty_to_declarer)
+	var card_raised: Dictionary = {}
+	for entry in p0_card_nodes:
+		var node: Control = entry["node"]
+		var card_data = entry["card_data"]
+		if not is_instance_valid(node):
+			continue
+		var is_kitty: bool = false
+		for k in kitty:
+			if _cards_equal(card_data, k):
+				is_kitty = true
+				break
+		if is_kitty:
+			card_raised[node] = true
+			_dp_discard_selected.append(card_data)
+		else:
+			card_raised[node] = false
 
 	# Make cards clickable for selection
 	_dp_awaiting_input = true
-	var card_raised: Dictionary = {}
 
 	for entry in p0_card_nodes:
 		var node: Control = entry["node"]
@@ -1448,30 +1468,27 @@ func _dp_step_discard() -> void:
 		if not is_instance_valid(node):
 			continue
 		node.mouse_filter = Control.MOUSE_FILTER_STOP
-		var base_pos: Vector2 = node.position
-		card_raised[node] = false
+		var base_pos_y: float = CardUtilScript.get_card_position(get_viewport(), 0, 0, hands[0].size()).y
 
 		var gui_handler := Callable(func(_event: InputEvent):
 			if not _dp_awaiting_input:
 				return
 			if _event is InputEventMouseButton and _event.pressed and _event.button_index == MOUSE_BUTTON_LEFT:
 				if card_raised[node]:
-					# Deselect
 					card_raised[node] = false
 					_dp_discard_selected.erase(card_data)
 					var tw: Tween = create_tween()
-					tw.tween_property(node, "position:y", base_pos.y, 0.1)
+					tw.tween_property(node, "position:y", base_pos_y, 0.1)
 				elif _dp_discard_selected.size() < 3:
-					# Select
 					card_raised[node] = true
 					_dp_discard_selected.append(card_data)
 					var tw: Tween = create_tween()
-					tw.tween_property(node, "position:y", base_pos.y - vh * 0.04, 0.1)
+					tw.tween_property(node, "position:y", base_pos_y - raise_y, 0.1)
 				_dp_update_discard_panel()
 		)
 		node.gui_input.connect(gui_handler)
 
-	# Top panel: giruda change option + confirm button
+	# Top panel: title + count + confirm
 	_dp_panel = PanelContainer.new()
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0, 0, 0, 0.85)
@@ -1488,65 +1505,17 @@ func _dp_step_discard() -> void:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
 
-	var count_label := _create_label("선택: 0 / 3", int(vh / 22.0), Color.WHITE)
+	var count_label := _create_label("선택: %d / 3" % _dp_discard_selected.size(), int(vh / 22.0), Color.WHITE)
 	count_label.name = "DiscardCount"
 	count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(count_label)
 
-	# Giruda change option (optional, +2)
-	if _dp.options.allow_giruda_change_after_kitty:
-		var sep := HSeparator.new()
-		vbox.add_child(sep)
-
-		var giruda_label: Label = _create_label("기루다 변경 (+2)", int(vh / 24.0), Color(0.7, 0.7, 0.7))
-		giruda_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		vbox.add_child(giruda_label)
-
-		var icon_size: int = int(vh / 12.0)
-		var suit_grid := GridContainer.new()
-		suit_grid.columns = 5
-		suit_grid.add_theme_constant_override("h_separation", 6)
-		suit_grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-
-		var suit_buttons: Array = []
-		for giruda_val in [BiddingStateScript.Giruda.SPADE, BiddingStateScript.Giruda.DIAMOND, BiddingStateScript.Giruda.HEART, BiddingStateScript.Giruda.CLUB, BiddingStateScript.Giruda.NO_GIRUDA]:
-			var btn := TextureButton.new()
-			btn.texture_normal = load(SUIT_ICONS[giruda_val])
-			btn.ignore_texture_size = true
-			btn.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
-			btn.custom_minimum_size = Vector2(icon_size, icon_size)
-
-			var border := Panel.new()
-			border.name = "GoldBorder"
-			var bstyle := StyleBoxFlat.new()
-			bstyle.bg_color = Color(0, 0, 0, 0)
-			bstyle.border_color = Color(1.0, 0.8, 0.2)
-			bstyle.set_border_width_all(3)
-			bstyle.set_corner_radius_all(4)
-			border.add_theme_stylebox_override("panel", bstyle)
-			border.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			border.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-			border.visible = (giruda_val == _dp_selected_giruda)
-			btn.add_child(border)
-
-			var captured_val: int = giruda_val
-			btn.pressed.connect(func():
-				_dp_selected_giruda = captured_val
-				for e in suit_buttons:
-					e["button"].get_node("GoldBorder").visible = (e["giruda"] == _dp_selected_giruda)
-			)
-			suit_grid.add_child(btn)
-			suit_buttons.append({"button": btn, "giruda": giruda_val})
-
-		vbox.add_child(suit_grid)
-
-	# Confirm button
 	var confirm_btn := Button.new()
 	confirm_btn.name = "DiscardConfirm"
 	confirm_btn.text = "확인"
 	confirm_btn.add_theme_font_size_override("font_size", btn_font)
 	confirm_btn.add_theme_font_override("font", _get_bold_font())
-	confirm_btn.disabled = true
+	confirm_btn.disabled = (_dp_discard_selected.size() != 3)
 	confirm_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	vbox.add_child(confirm_btn)
 
@@ -1566,18 +1535,9 @@ func _dp_step_discard() -> void:
 	while _dp_awaiting_input:
 		await get_tree().process_frame
 
-	# Apply giruda change if different
-	if _dp_selected_giruda != _dp.giruda and _dp.options.allow_giruda_change_after_kitty:
-		var new_bid: int = _dp.bid + 2
-		if _dp_selected_giruda == BiddingStateScript.Giruda.NO_GIRUDA:
-			new_bid = _dp.bid + 1
-		_dp.change_giruda_second(_dp_selected_giruda, new_bid)
-
-	# Clean up
 	_dp_panel.queue_free()
 	_dp_panel = null
 
-	# Remove click handlers and reset positions
 	for entry in p0_card_nodes:
 		var node: Control = entry["node"]
 		if is_instance_valid(node):
