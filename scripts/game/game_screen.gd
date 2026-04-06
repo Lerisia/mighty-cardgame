@@ -1925,6 +1925,9 @@ func _dp_step_friend() -> Dictionary:
 			for e in suit_buttons:
 				e["button"].get_node("GoldBorder").visible = (e["suit"] == _dp_friend_suit)
 			_dp_update_custom_rank_label(other_row)
+			chosen_result = {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": CardScript.new(_dp_friend_suit, _dp_friend_rank)}
+			for b in all_btns:
+				b.remove_theme_color_override("font_color")
 		)
 		other_row.add_child(btn)
 		suit_buttons.append({"button": btn, "suit": suit_val})
@@ -1967,6 +1970,9 @@ func _dp_step_friend() -> Dictionary:
 		if next >= 0:
 			_dp_friend_rank = all_ranks[next]
 			_dp_update_custom_rank_label(other_row)
+			chosen_result = {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": CardScript.new(_dp_friend_suit, _dp_friend_rank)}
+			for b in all_btns:
+				b.remove_theme_color_override("font_color")
 	)
 	rank_down.pressed.connect(func():
 		var idx: int = all_ranks.find(_dp_friend_rank)
@@ -1974,23 +1980,10 @@ func _dp_step_friend() -> Dictionary:
 		if next >= 0:
 			_dp_friend_rank = all_ranks[next]
 			_dp_update_custom_rank_label(other_row)
+			chosen_result = {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": CardScript.new(_dp_friend_suit, _dp_friend_rank)}
+			for b in all_btns:
+				b.remove_theme_color_override("font_color")
 	)
-
-	var select_card_btn := Button.new()
-	select_card_btn.text = "선택"
-	select_card_btn.name = "CustomConfirm"
-	select_card_btn.add_theme_font_size_override("font_size", small_font)
-	select_card_btn.add_theme_font_override("font", _get_bold_font())
-	select_card_btn.disabled = _dp_is_card_in_hand_or_discard_specific(_dp_friend_suit, _dp_friend_rank)
-	select_card_btn.pressed.connect(func():
-		if _dp_is_card_in_hand_or_discard_specific(_dp_friend_suit, _dp_friend_rank):
-			return
-		chosen_result = {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": CardScript.new(_dp_friend_suit, _dp_friend_rank)}
-		for b in all_btns:
-			b.remove_theme_color_override("font_color")
-		select_card_btn.add_theme_color_override("font_color", Color.YELLOW)
-	)
-	other_row.add_child(select_card_btn)
 	_dp_update_custom_rank_label(other_row)
 
 	vbox.add_child(other_row)
@@ -2064,9 +2057,6 @@ func _dp_update_custom_rank_label(custom_box: Control) -> void:
 	var rank_label = custom_box.find_child("CustomRankLabel", true, false)
 	if rank_label:
 		rank_label.text = RANK_DISPLAY.get(_dp_friend_rank, "?")
-	var confirm_btn = custom_box.find_child("CustomConfirm", true, false)
-	if confirm_btn:
-		confirm_btn.disabled = _dp_is_card_in_hand_or_discard_specific(_dp_friend_suit, _dp_friend_rank)
 	# Update arrow disabled state
 	var idx: int = all_ranks.find(_dp_friend_rank)
 	var has_prev: bool = false
