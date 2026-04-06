@@ -1331,6 +1331,7 @@ func _dp_step_giruda_change(raise_amount: int) -> void:
 	bid_row.add_theme_constant_override("separation", 15)
 
 	var down_btn := Button.new()
+	down_btn.name = "DPDown"
 	down_btn.text = "▼"
 	down_btn.add_theme_font_size_override("font_size", btn_font)
 	bid_row.add_child(down_btn)
@@ -1346,9 +1347,22 @@ func _dp_step_giruda_change(raise_amount: int) -> void:
 	bid_row.add_child(bid_label)
 
 	var up_btn := Button.new()
+	up_btn.name = "DPUp"
 	up_btn.text = "▲"
 	up_btn.add_theme_font_size_override("font_size", btn_font)
 	bid_row.add_child(up_btn)
+
+	var _update_dp_arrows := func():
+		var min_bid: int
+		if _dp_selected_giruda == _dp.giruda:
+			min_bid = _dp.bid
+		elif _dp_selected_giruda == BiddingStateScript.Giruda.NO_GIRUDA:
+			min_bid = _dp.bid + raise_amount - 1
+		else:
+			min_bid = _dp.bid + raise_amount
+		down_btn.disabled = (_dp_selected_bid <= min_bid)
+		up_btn.disabled = (_dp_selected_bid >= MAX_BID)
+		bid_label.text = "%s %d" % [SUIT_DISPLAY.get(_dp_selected_giruda, "?"), _dp_selected_bid]
 
 	down_btn.pressed.connect(func():
 		var min_bid: int
@@ -1360,13 +1374,14 @@ func _dp_step_giruda_change(raise_amount: int) -> void:
 			min_bid = _dp.bid + raise_amount
 		if _dp_selected_bid > min_bid:
 			_dp_selected_bid -= 1
-			bid_label.text = "%s %d" % [SUIT_DISPLAY.get(_dp_selected_giruda, "?"), _dp_selected_bid]
+		_update_dp_arrows.call()
 	)
 	up_btn.pressed.connect(func():
 		if _dp_selected_bid < MAX_BID:
 			_dp_selected_bid += 1
-			bid_label.text = "%s %d" % [SUIT_DISPLAY.get(_dp_selected_giruda, "?"), _dp_selected_bid]
+		_update_dp_arrows.call()
 	)
+	_update_dp_arrows.call()
 
 	vbox.add_child(bid_row)
 
@@ -1453,6 +1468,12 @@ func _dp_update_giruda_change_highlight(suit_buttons: Array, raise_amount: int) 
 	var bid_label = _dp_panel.find_child("DPBidLabel", true, false)
 	if bid_label:
 		bid_label.text = "%s %d" % [SUIT_DISPLAY.get(_dp_selected_giruda, "?"), _dp_selected_bid]
+	var dp_down = _dp_panel.find_child("DPDown", true, false)
+	var dp_up = _dp_panel.find_child("DPUp", true, false)
+	if dp_down:
+		dp_down.disabled = (_dp_selected_bid <= min_bid)
+	if dp_up:
+		dp_up.disabled = (_dp_selected_bid >= MAX_BID)
 
 
 func _dp_step_show_kitty() -> void:
@@ -1613,6 +1634,7 @@ func _dp_step_discard() -> void:
 		bid_row.add_theme_constant_override("separation", 15)
 
 		var down_btn := Button.new()
+		down_btn.name = "DPDown"
 		down_btn.text = "▼"
 		down_btn.add_theme_font_size_override("font_size", btn_font)
 		bid_row.add_child(down_btn)
@@ -1628,6 +1650,7 @@ func _dp_step_discard() -> void:
 		bid_row.add_child(bid_label)
 
 		var up_btn := Button.new()
+		up_btn.name = "DPUp"
 		up_btn.text = "▲"
 		up_btn.add_theme_font_size_override("font_size", btn_font)
 		bid_row.add_child(up_btn)
@@ -1642,7 +1665,7 @@ func _dp_step_discard() -> void:
 					min_bid = _dp.bid + 1
 			if _dp_selected_bid > min_bid:
 				_dp_selected_bid -= 1
-				_dp_update_discard_bid_label()
+			_dp_update_discard_bid_label()
 		)
 		up_btn.pressed.connect(func():
 			if _dp_selected_bid < MAX_BID:
@@ -1651,6 +1674,7 @@ func _dp_step_discard() -> void:
 		)
 
 		vbox.add_child(bid_row)
+		_dp_update_discard_bid_label()
 
 	# Confirm button (enabled only when 3 cards selected)
 	var confirm_btn := Button.new()
@@ -1709,7 +1733,6 @@ func _dp_update_discard_bid_label() -> void:
 		return
 	var min_bid: int
 	if _dp_selected_giruda == _dp.giruda:
-		# Same giruda = no change, allow original bid
 		min_bid = _dp.bid
 	else:
 		min_bid = _dp.bid + 2
@@ -1722,6 +1745,12 @@ func _dp_update_discard_bid_label() -> void:
 	var bid_label = _dp_panel.find_child("DPBidLabel", true, false)
 	if bid_label:
 		bid_label.text = "%s %d" % [SUIT_DISPLAY.get(_dp_selected_giruda, "?"), _dp_selected_bid]
+	var dp_down = _dp_panel.find_child("DPDown", true, false)
+	var dp_up = _dp_panel.find_child("DPUp", true, false)
+	if dp_down:
+		dp_down.disabled = (_dp_selected_bid <= min_bid)
+	if dp_up:
+		dp_up.disabled = (_dp_selected_bid >= MAX_BID)
 
 
 func _dp_step_friend() -> Dictionary:
@@ -1907,6 +1936,7 @@ func _dp_step_friend() -> Dictionary:
 		suit_buttons.append({"button": btn, "suit": suit_val})
 
 	var rank_down := Button.new()
+	rank_down.name = "RankDown"
 	rank_down.text = "▼"
 	rank_down.add_theme_font_size_override("font_size", small_font)
 	other_row.add_child(rank_down)
@@ -1922,22 +1952,33 @@ func _dp_step_friend() -> Dictionary:
 	other_row.add_child(rank_label)
 
 	var rank_up := Button.new()
+	rank_up.name = "RankUp"
 	rank_up.text = "▲"
 	rank_up.add_theme_font_size_override("font_size", small_font)
 	other_row.add_child(rank_up)
 
 	var all_ranks := [CardScript.Rank.ACE, CardScript.Rank.KING, CardScript.Rank.QUEEN, CardScript.Rank.JACK, CardScript.Rank.TEN, CardScript.Rank.NINE, CardScript.Rank.EIGHT, CardScript.Rank.SEVEN, CardScript.Rank.SIX, CardScript.Rank.FIVE, CardScript.Rank.FOUR, CardScript.Rank.THREE, CardScript.Rank.TWO]
 
+	var _find_next_available := func(from_idx: int, direction: int) -> int:
+		var idx: int = from_idx + direction
+		while idx >= 0 and idx < all_ranks.size():
+			if not _dp_is_card_in_hand_or_discard_specific(_dp_friend_suit, all_ranks[idx]):
+				return idx
+			idx += direction
+		return -1
+
 	rank_up.pressed.connect(func():
 		var idx: int = all_ranks.find(_dp_friend_rank)
-		if idx > 0:
-			_dp_friend_rank = all_ranks[idx - 1]
+		var next: int = _find_next_available.call(idx, -1)
+		if next >= 0:
+			_dp_friend_rank = all_ranks[next]
 			_dp_update_custom_rank_label(other_row)
 	)
 	rank_down.pressed.connect(func():
 		var idx: int = all_ranks.find(_dp_friend_rank)
-		if idx < all_ranks.size() - 1:
-			_dp_friend_rank = all_ranks[idx + 1]
+		var next: int = _find_next_available.call(idx, 1)
+		if next >= 0:
+			_dp_friend_rank = all_ranks[next]
 			_dp_update_custom_rank_label(other_row)
 	)
 
@@ -1956,6 +1997,7 @@ func _dp_step_friend() -> Dictionary:
 		select_card_btn.add_theme_color_override("font_color", Color.YELLOW)
 	)
 	other_row.add_child(select_card_btn)
+	_dp_update_custom_rank_label(other_row)
 
 	vbox.add_child(other_row)
 
@@ -2018,12 +2060,37 @@ func _dp_is_card_in_hand_or_discard_specific(suit: int, rank: int) -> bool:
 
 
 func _dp_update_custom_rank_label(custom_box: Control) -> void:
+	var all_ranks := [CardScript.Rank.ACE, CardScript.Rank.KING, CardScript.Rank.QUEEN, CardScript.Rank.JACK, CardScript.Rank.TEN, CardScript.Rank.NINE, CardScript.Rank.EIGHT, CardScript.Rank.SEVEN, CardScript.Rank.SIX, CardScript.Rank.FIVE, CardScript.Rank.FOUR, CardScript.Rank.THREE, CardScript.Rank.TWO]
+	# If current rank is owned, skip to first available
+	if _dp_friend_suit >= 0 and _dp_is_card_in_hand_or_discard_specific(_dp_friend_suit, _dp_friend_rank):
+		for r in all_ranks:
+			if not _dp_is_card_in_hand_or_discard_specific(_dp_friend_suit, r):
+				_dp_friend_rank = r
+				break
 	var rank_label = custom_box.find_child("CustomRankLabel", true, false)
 	if rank_label:
 		rank_label.text = RANK_DISPLAY.get(_dp_friend_rank, "?")
 	var confirm_btn = custom_box.find_child("CustomConfirm", true, false)
 	if confirm_btn:
 		confirm_btn.disabled = _dp_is_card_in_hand_or_discard_specific(_dp_friend_suit, _dp_friend_rank)
+	# Update arrow disabled state
+	var idx: int = all_ranks.find(_dp_friend_rank)
+	var has_prev: bool = false
+	var has_next: bool = false
+	for i in range(idx - 1, -1, -1):
+		if not _dp_is_card_in_hand_or_discard_specific(_dp_friend_suit, all_ranks[i]):
+			has_prev = true
+			break
+	for i in range(idx + 1, all_ranks.size()):
+		if not _dp_is_card_in_hand_or_discard_specific(_dp_friend_suit, all_ranks[i]):
+			has_next = true
+			break
+	var up_btn = custom_box.find_child("RankUp", true, false)
+	var down_btn = custom_box.find_child("RankDown", true, false)
+	if up_btn:
+		up_btn.disabled = not has_prev
+	if down_btn:
+		down_btn.disabled = not has_next
 
 
 func _giruda_to_suit_val(giruda: int) -> int:
