@@ -104,10 +104,28 @@ func test_pride_to_min_score_clamped() -> void:
 	assert_int(PrideTableScript.pride_to_min_score(9999, 5, 13)).is_equal(20)
 
 
-func test_no_giruda_gets_bias_bonus() -> void:
+func test_no_giruda_gets_bias_bonus_with_mighty() -> void:
+	# No-giruda should only get BIAS when hand has mighty or joker
+	var hand_with_mighty := [
+		_card(S, CardScript.Rank.ACE),  # mighty for non-spade giruda
+	]
+	for i in range(9):
+		hand_with_mighty.append(_card(H, CardScript.Rank.TWO + i))
+	var pride_mighty = PrideTableScript.calc_pride(BiddingStateScript.Giruda.NO_GIRUDA, hand_with_mighty)
+
+	var hand_without := []
+	for i in range(10):
+		hand_without.append(_card(H, CardScript.Rank.TWO + i))
+	var pride_without = PrideTableScript.calc_pride(BiddingStateScript.Giruda.NO_GIRUDA, hand_without)
+
+	assert_int(pride_mighty).is_greater(pride_without)
+
+
+func test_no_giruda_weak_hand_low_pride() -> void:
+	# A hand with no mighty, no joker, no aces should have very low no-giruda pride
 	var hand := []
 	for i in range(10):
 		hand.append(_card(S, CardScript.Rank.TWO + i))
-	var pride_giruda = PrideTableScript.calc_pride(BiddingStateScript.Giruda.SPADE, hand)
 	var pride_no = PrideTableScript.calc_pride(BiddingStateScript.Giruda.NO_GIRUDA, hand)
-	assert_int(pride_no).is_greater(0)
+	var target = PrideTableScript.pride_to_min_score(pride_no, 5, 13)
+	assert_int(target).is_less(13)

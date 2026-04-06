@@ -116,7 +116,22 @@ static func calc_pride(giruda: int, hand: Array) -> int:
 	if giruda != BiddingStateScript.Giruda.NO_GIRUDA:
 		pride += ndem
 	else:
-		pride += BIAS + KIRUDA_COUNT_WEIGHT
+		# No-giruda requires strong hand indicators to earn the baseline bonus.
+		# Only award BIAS when the hand has mighty or joker (essential for
+		# winning tricks without a trump suit).  Scale COUNT_WEIGHT by the
+		# number of non-mighty aces, since aces are the primary trick-winners
+		# in a no-giruda contract.
+		if has_mighty or has_joker:
+			pride += BIAS
+		var ace_count: int = 0
+		for card in hand:
+			if not card.is_joker and card.rank == CardScript.Rank.ACE:
+				if not _card_equals(card, mighty_card):
+					ace_count += 1
+		if ace_count >= 3:
+			pride += KIRUDA_COUNT_WEIGHT
+		elif ace_count >= 2:
+			pride += KIRUDA_COUNT_WEIGHT / 2
 		pride += ndem * 3
 
 	if hand.size() < 10:

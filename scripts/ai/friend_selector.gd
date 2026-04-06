@@ -23,15 +23,16 @@ static func select(hand: Array, giruda: int, joker_friend_allowed: bool = true) 
 				found_card = joker
 				break
 
-		var kiruda_ace = CardScript.new(giruda_suit, CardScript.Rank.ACE)
-		if not _hand_contains(hand, kiruda_ace):
-			found_card = kiruda_ace
-			break
+		if giruda_suit >= 0:
+			var kiruda_ace = CardScript.new(giruda_suit, CardScript.Rank.ACE)
+			if not _hand_contains(hand, kiruda_ace):
+				found_card = kiruda_ace
+				break
 
-		var kiruda_king = CardScript.new(giruda_suit, CardScript.Rank.KING)
-		if not _hand_contains(hand, kiruda_king):
-			found_card = kiruda_king
-			break
+			var kiruda_king = CardScript.new(giruda_suit, CardScript.Rank.KING)
+			if not _hand_contains(hand, kiruda_king):
+				found_card = kiruda_king
+				break
 
 		var found_other_ace: bool = false
 		for suit in [CardScript.Suit.SPADE, CardScript.Suit.DIAMOND, CardScript.Suit.HEART, CardScript.Suit.CLUB]:
@@ -43,10 +44,11 @@ static func select(hand: Array, giruda: int, joker_friend_allowed: bool = true) 
 		if found_other_ace:
 			break
 
-		var kiruda_queen = CardScript.new(giruda_suit, CardScript.Rank.QUEEN)
-		if not _hand_contains(hand, kiruda_queen):
-			found_card = kiruda_queen
-			break
+		if giruda_suit >= 0:
+			var kiruda_queen = CardScript.new(giruda_suit, CardScript.Rank.QUEEN)
+			if not _hand_contains(hand, kiruda_queen):
+				found_card = kiruda_queen
+				break
 
 		break
 

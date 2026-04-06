@@ -30,7 +30,8 @@ func test_average_hand_pride_distribution() -> void:
 		var spade_pride: int = PrideTableScript.calc_pride(BiddingStateScript.Giruda.SPADE, hand)
 		var no_pride: int = PrideTableScript.calc_pride(BiddingStateScript.Giruda.NO_GIRUDA, hand)
 
-	assert_int(no_giruda_wins).is_less(25)
+	# With the fix, no-giruda should win much less often (needs mighty/joker + aces)
+	assert_int(no_giruda_wins).is_less(15)
 
 
 func test_typical_hand_no_giruda_should_lose() -> void:

@@ -89,7 +89,10 @@ static func kill_from_six(hand: Array, giruda: int, failed_so_far: Array) -> Car
 			if not _hand_contains(hand, c) and not _list_contains(failed_so_far, c):
 				return c
 
-	return CardScript.new(_giruda_to_suit(giruda), CardScript.Rank.TWO)
+	var fallback_suit: int = _giruda_to_suit(giruda)
+	if fallback_suit < 0:
+		fallback_suit = CardScript.Suit.SPADE
+	return CardScript.new(fallback_suit, CardScript.Rank.TWO)
 
 
 static func _is_jokercall_any(card) -> bool:
