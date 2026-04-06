@@ -737,7 +737,7 @@ func _move_kitty_to_declarer(declarer: int) -> void:
 			var new_total: int = 10 + i + 1
 			if is_instance_valid(kitty_node):
 				var mid_target: Vector2 = CardUtilScript.get_card_position(get_viewport(), declarer, new_total / 2, new_total)
-				tween.tween_property(kitty_node, "position", mid_target, 0.2).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
+				tween.tween_property(kitty_node, "position", mid_target, 0.4).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
 				tween.tween_property(kitty_node, "modulate:a", 0.0, 0.08)
 				var capture_total: int = new_total
 				tween.tween_callback(func():
