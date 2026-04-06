@@ -577,6 +577,10 @@ func _bot_declarer_phase(declarer: int, giruda: int, bid: int) -> void:
 
 	await get_tree().create_timer(0.3).timeout
 
+	if not dp.is_finished:
+		push_warning("DeclarerPhase not finished! friend_call_type=%d" % dp.friend_call_type)
+		return
+
 	var friend_type: int = dp.friend_call_type
 	var friend_text := ""
 	var friend_card = null
