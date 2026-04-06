@@ -305,22 +305,32 @@ func _calculate_hand_strength(giruda: int, hand: Array) -> int:
 			if _count_suit(hand, suit_idx) == 0:
 				score += WEIGHT_VOID_SUIT
 	else:
-		if has_mighty or has_joker:
+		# No-giruda requires both mighty AND joker for the full baseline bonus.
+		# Having only one of them earns a reduced bonus. This prevents no-giruda
+		# from beating suited giruda unless the hand is genuinely suited for
+		# no-trump play (strong high-card tricks without a trump suit).
+		if has_mighty and has_joker:
 			score += WEIGHT_KIRUDA_MATCH + WEIGHT_POINT_SUIT
+		elif has_mighty or has_joker:
+			score += WEIGHT_KIRUDA_MATCH
 		var ace_count: int = 0
 		for card in hand:
 			if not card.is_joker and card.rank == CardScript.Rank.ACE:
 				if not CardValidatorScript.is_mighty(card, giruda):
 					ace_count += 1
+		# Require at least 2 non-mighty aces before awarding any ace bonus,
+		# and scale by ace count. A no-giruda hand lives or dies by high cards.
 		if ace_count >= 3:
 			score += WEIGHT_REMAINING
 		elif ace_count >= 2:
 			score += WEIGHT_REMAINING / 2
+		# Voids help in no-giruda but should not be weighted 3x suited play.
+		# Use the same flat WEIGHT_VOID_SUIT as the suited path.
 		var void_count: int = 0
 		for suit_idx in range(4):
 			if _count_suit(hand, suit_idx) == 0:
 				void_count += 1
-		score += void_count * WEIGHT_VOID_SUIT * 3
+		score += void_count * WEIGHT_VOID_SUIT
 
 	if hand.size() > 0 and hand.size() < 10:
 		score = score * 10 / hand.size()

@@ -12,6 +12,7 @@ const BSWStrategyScript = preload("res://scripts/ai/bsw_strategy.gd")
 const XiaoStrategyScript = preload("res://scripts/ai/xiao_strategy.gd")
 const DeclarerPhaseScript = preload("res://scripts/game_logic/declarer_phase.gd")
 const CardValidatorScript = preload("res://scripts/game_logic/card_validator.gd")
+const PrideTableScript = preload("res://scripts/ai/pride_table.gd")
 
 const CARD_BORDER := 1.0
 const CARD_BORDER_COLOR := Color(0.15, 0.15, 0.15, 1.0)
@@ -215,7 +216,21 @@ func _update_suit_highlight() -> void:
 
 func _select_suit(suit: int) -> void:
 	selected_suit = suit
+	_clamp_bid_to_minimum()
 	_update_bid_display()
+
+
+func _clamp_bid_to_minimum() -> void:
+	var min_allowed: int = MIN_BID
+	if bidding_manager and bidding_manager.highest_bid >= MIN_BID:
+		if selected_suit == BiddingStateScript.Giruda.NO_GIRUDA and bidding_manager.highest_giruda != BiddingStateScript.Giruda.NO_GIRUDA:
+			min_allowed = bidding_manager.highest_bid
+		else:
+			min_allowed = bidding_manager.highest_bid + 1
+	if selected_bid < min_allowed:
+		selected_bid = min_allowed
+	if selected_bid > MAX_BID:
+		selected_bid = MAX_BID
 
 
 func _on_bid_up() -> void:
@@ -227,7 +242,10 @@ func _on_bid_up() -> void:
 func _on_bid_down() -> void:
 	var min_allowed: int = MIN_BID
 	if bidding_manager and bidding_manager.highest_bid >= MIN_BID:
-		min_allowed = bidding_manager.highest_bid + 1
+		if selected_suit == BiddingStateScript.Giruda.NO_GIRUDA and bidding_manager.highest_giruda != BiddingStateScript.Giruda.NO_GIRUDA:
+			min_allowed = bidding_manager.highest_bid
+		else:
+			min_allowed = bidding_manager.highest_bid + 1
 	if selected_bid > min_allowed:
 		selected_bid -= 1
 		_update_bid_display()
@@ -344,13 +362,14 @@ func _handle_deal_miss() -> void:
 
 
 func _show_bid_panel_for_player() -> void:
+	selected_suit = _recommend_giruda(hands[0])
 	if bidding_manager.highest_bid >= MIN_BID:
 		selected_bid = bidding_manager.highest_bid + 1
 		if selected_bid > MAX_BID:
 			selected_bid = MAX_BID
 	else:
 		selected_bid = MIN_BID
-	selected_suit = BiddingStateScript.Giruda.SPADE
+	_clamp_bid_to_minimum()
 	_update_bid_display()
 
 	$BidPanel.visible = true
@@ -658,6 +677,13 @@ func _bot_declarer_phase(declarer: int, giruda: int, bid: int) -> void:
 
 	await get_tree().create_timer(5.0).timeout
 	panel.queue_free()
+
+
+func _recommend_giruda(hand: Array) -> int:
+	var result: Dictionary = PrideTableScript.evaluate_best_giruda(hand)
+	if result["giruda"] == BiddingStateScript.Giruda.NONE:
+		return BiddingStateScript.Giruda.SPADE
+	return result["giruda"]
 
 
 func _card_suit_to_giruda(suit: int) -> int:
