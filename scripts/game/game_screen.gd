@@ -238,6 +238,7 @@ func _on_bid_submit() -> void:
 		_play_sfx(_sfx_bid)
 	else:
 		_show_player_bid_text(0, "무효")
+	_update_bid_display()
 	_continue_bidding()
 
 
@@ -246,6 +247,7 @@ func _on_bid_pass() -> void:
 	bidding_manager.pass_turn(0)
 	_show_player_bid_text(0, "패스")
 	_play_sfx(_sfx_pass)
+	_update_bid_display()
 	_continue_bidding()
 
 
@@ -276,6 +278,11 @@ func _style_election_label() -> void:
 
 
 func _continue_bidding() -> void:
+	if _check_all_passed():
+		await get_tree().create_timer(1.5).timeout
+		await _handle_deal_miss()
+		return
+
 	if bidding_manager.is_finished():
 		await get_tree().create_timer(1.5).timeout
 		_end_bidding()
@@ -289,6 +296,48 @@ func _continue_bidding() -> void:
 	else:
 		await get_tree().create_timer(1.5).timeout
 		_do_bot_bid(turn)
+
+
+func _check_all_passed() -> bool:
+	for i in range(5):
+		if not bidding_manager.states[i].passed:
+			return false
+	return bidding_manager.highest_bidder < 0
+
+
+func _handle_deal_miss() -> void:
+	_end_bidding()
+	await _show_announcement_stay("전원 패스!\n카드를 다시 섞습니다...")
+	await get_tree().create_timer(2.0).timeout
+	_hide_announcement()
+
+	for card in placed_cards:
+		if is_instance_valid(card):
+			card.queue_free()
+	placed_cards.clear()
+	p0_card_nodes.clear()
+	kitty_card_nodes.clear()
+	for label in name_labels:
+		if is_instance_valid(label):
+			label.queue_free()
+	name_labels.clear()
+	for label in score_labels:
+		if is_instance_valid(label):
+			label.queue_free()
+	score_labels.clear()
+	for c in crown_nodes:
+		if is_instance_valid(c):
+			c.queue_free()
+	crown_nodes.clear()
+
+	player_card_counts = [0, 0, 0, 0, 0]
+	var deck = DeckScript.new()
+	var result: Dictionary = deck.deal(5)
+	hands = result["hands"]
+	kitty = result["kitty"]
+	election_round += 1
+
+	_play_shuffle_animation()
 
 
 func _show_bid_panel_for_player() -> void:
