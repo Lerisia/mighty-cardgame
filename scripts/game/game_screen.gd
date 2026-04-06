@@ -728,27 +728,27 @@ func _move_kitty_to_declarer(declarer: int) -> void:
 			if is_instance_valid(card):
 				existing_backs.append(card)
 
+		var origin: Vector2 = CardUtilScript.get_hand_origin(get_viewport(), declarer)
 		var tween: Tween = create_tween()
 		for i in range(kitty_card_nodes.size()):
 			var kitty_node = kitty_card_nodes[i]
-			var new_total: int = 11 + i
 			if is_instance_valid(kitty_node):
-				var mid_pos: Vector2 = CardUtilScript.get_card_position(get_viewport(), declarer, new_total / 2, new_total)
-				tween.tween_property(kitty_node, "position", mid_pos, 0.3).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
+				tween.tween_property(kitty_node, "position", origin, 0.3).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
 				tween.tween_callback(func():
 					_play_sfx(_sfx_deal)
 					kitty_node.queue_free()
 					var new_back: Control = _create_card_back(card_size)
-					_add_card(new_back, card_size, mid_pos)
+					_add_card(new_back, card_size, origin)
 					existing_backs.append(new_back)
+					bot_hand_nodes[declarer].append(new_back)
 					var reposition: Tween = create_tween().set_parallel(true)
 					for j in range(existing_backs.size()):
 						var back = existing_backs[j]
 						if is_instance_valid(back):
 							var pos: Vector2 = CardUtilScript.get_card_position(get_viewport(), declarer, j, existing_backs.size())
-							reposition.tween_property(back, "position", pos, 0.15)
+							reposition.tween_property(back, "position", pos, 0.2)
 				)
-				tween.tween_interval(0.4)
+				tween.tween_interval(0.5)
 		await tween.finished
 	else:
 		hands[0].append_array(kitty)
