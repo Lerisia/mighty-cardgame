@@ -390,7 +390,12 @@ func _handle_deal_miss() -> void:
 
 
 func _show_bid_panel_for_player() -> void:
-	selected_suit = _recommend_giruda(hands[0])
+	# Keep player's previous suit if they already bid, otherwise recommend
+	var my_state = bidding_manager.states[0]
+	if my_state.bid_count > 0:
+		selected_suit = my_state.bid_giruda
+	else:
+		selected_suit = _recommend_giruda(hands[0])
 	if bidding_manager.highest_bid >= MIN_BID:
 		selected_bid = bidding_manager.highest_bid + 1
 		if selected_bid > MAX_BID:
@@ -1230,7 +1235,8 @@ func _player_declarer_phase(giruda: int, bid: int) -> void:
 	# Step 2: reveal kitty + absorb (animation handles hands[0] update)
 	_dp.reveal_kitty()
 	await _dp_step_show_kitty()
-	hands[0] = _dp.hand.duplicate()
+	# _move_kitty_to_declarer already sorted hands[0]; sync _dp.hand from it
+	_dp.hand = hands[0].duplicate()
 
 	# Step 3: second giruda change + discard 3 cards (combined panel)
 	await _dp_step_discard()
@@ -1413,13 +1419,20 @@ func _dp_step_giruda_change(raise_amount: int) -> void:
 	var actually_changed: bool = _dp_selected_giruda != _dp.giruda or _dp_selected_bid != _dp.bid
 	if result == "change" and actually_changed:
 		if raise_amount == 1:
-			if not _dp.change_giruda_first(_dp_selected_giruda, _dp_selected_bid):
+			var ok: bool = _dp.change_giruda_first(_dp_selected_giruda, _dp_selected_bid)
+			if not ok:
+				push_warning("change_giruda_first FAILED: sel_g=%d sel_b=%d dp_g=%d dp_b=%d" % [_dp_selected_giruda, _dp_selected_bid, _dp.giruda, _dp.bid])
 				_dp.skip_first_change()
+			else:
+				push_warning("change_giruda_first OK: now g=%d b=%d" % [_dp.giruda, _dp.bid])
 		else:
-			_dp.change_giruda_second(_dp_selected_giruda, _dp_selected_bid)
+			var ok: bool = _dp.change_giruda_second(_dp_selected_giruda, _dp_selected_bid)
+			if not ok:
+				push_warning("change_giruda_second FAILED: sel_g=%d sel_b=%d dp_g=%d dp_b=%d" % [_dp_selected_giruda, _dp_selected_bid, _dp.giruda, _dp.bid])
 	else:
 		if raise_amount == 1:
 			_dp.skip_first_change()
+		push_warning("giruda_change skipped: result=%s changed=%s sel_g=%d sel_b=%d dp_g=%d dp_b=%d" % [result, str(actually_changed), _dp_selected_giruda, _dp_selected_bid, _dp.giruda, _dp.bid])
 
 
 func _dp_update_giruda_change_highlight(suit_buttons: Array, raise_amount: int) -> void:
