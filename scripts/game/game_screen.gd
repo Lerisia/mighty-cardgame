@@ -1995,7 +1995,7 @@ func _dp_is_card_in_hand_or_discard_specific(suit: int, rank: int) -> bool:
 	return false
 
 
-func _dp_update_custom_rank_label(custom_box: VBoxContainer) -> void:
+func _dp_update_custom_rank_label(custom_box: Control) -> void:
 	var rank_label = custom_box.find_child("CustomRankLabel", true, false)
 	if rank_label:
 		rank_label.text = RANK_DISPLAY.get(_dp_friend_rank, "?")
