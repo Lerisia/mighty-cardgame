@@ -285,7 +285,7 @@ func _continue_bidding() -> void:
 
 	if bidding_manager.is_finished():
 		await get_tree().create_timer(1.5).timeout
-		_end_bidding()
+		_end_bidding_with_declarer()
 		return
 
 	var turn: int = bidding_manager.current_turn
@@ -435,6 +435,10 @@ func _end_bidding() -> void:
 	$ElectionPanel.visible = false
 	$BidPanel.visible = false
 	_clear_bid_labels()
+
+
+func _end_bidding_with_declarer() -> void:
+	_end_bidding()
 	_start_declarer_phase()
 
 
