@@ -1753,18 +1753,17 @@ func _dp_step_friend() -> Dictionary:
 	# Determine giruda ace
 	var giruda_suit: int = _giruda_to_suit_val(_dp.giruda)
 
-	# Build quick-pick buttons
-	var btn_row1 := HBoxContainer.new()
-	btn_row1.alignment = BoxContainer.ALIGNMENT_CENTER
-	btn_row1.add_theme_constant_override("separation", 15)
-
-	var btn_row2 := HBoxContainer.new()
-	btn_row2.alignment = BoxContainer.ALIGNMENT_CENTER
-	btn_row2.add_theme_constant_override("separation", 15)
+	# Build 2-column grid (MN4.0 style)
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 8)
+	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 
 	_dp_awaiting_input = true
 	var chosen_result: Dictionary = recommend.duplicate()
 	var all_btns: Array = []
+	var btn_w: float = vw * 0.28
 
 	var _highlight_btn := func(active_btn: Button):
 		for b in all_btns:
@@ -1773,91 +1772,95 @@ func _dp_step_friend() -> Dictionary:
 			else:
 				b.remove_theme_color_override("font_color")
 
-	var _make_btn := func(text: String, min_w: float, disabled: bool) -> Button:
+	var _make_btn := func(text: String, disabled: bool) -> Button:
 		var btn := Button.new()
 		btn.text = text
 		btn.add_theme_font_size_override("font_size", btn_font)
 		btn.add_theme_font_override("font", _get_bold_font())
-		btn.custom_minimum_size = Vector2(min_w, vh * 0.1)
+		btn.custom_minimum_size = Vector2(btn_w, vh * 0.08)
 		btn.disabled = disabled
 		all_btns.append(btn)
 		return btn
 
-	# 마이티 프렌드
+	# Row 1: 마이티 / 기루다A
 	var mighty_disabled: bool = _dp_is_card_in_hand_or_discard_specific(mighty_suit, mighty_rank)
-	var mighty_btn: Button = _make_btn.call("마이티 프렌드", vw * 0.25, mighty_disabled)
+	var mighty_btn: Button = _make_btn.call("마이티 프렌드", mighty_disabled)
 	mighty_btn.pressed.connect(func():
 		chosen_result = {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": CardScript.new(mighty_suit, mighty_rank)}
 		_highlight_btn.call(mighty_btn)
 	)
-	btn_row1.add_child(mighty_btn)
+	grid.add_child(mighty_btn)
 
-	# 조커 프렌드
-	var joker_disabled: bool = _dp_is_card_in_hand_or_discard_specific(-1, -1)
-	var joker_btn: Button = _make_btn.call("조커 프렌드", vw * 0.25, joker_disabled)
-	joker_btn.pressed.connect(func():
-		chosen_result = {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": CardScript.create_joker()}
-		_highlight_btn.call(joker_btn)
-	)
-	btn_row1.add_child(joker_btn)
-
-	# 기루다A 프렌드
 	var ace_btn: Button = null
 	if giruda_suit >= 0:
 		var ace_disabled: bool = _dp_is_card_in_hand_or_discard_specific(giruda_suit, CardScript.Rank.ACE)
 		if giruda_suit == mighty_suit and CardScript.Rank.ACE == mighty_rank:
 			ace_disabled = true
-		ace_btn = _make_btn.call("%s A 프렌드" % SUIT_DISPLAY.get(_dp.giruda, "?"), vw * 0.25, ace_disabled)
+		ace_btn = _make_btn.call("%s A 프렌드" % SUIT_DISPLAY.get(_dp.giruda, "?"), ace_disabled)
 		ace_btn.pressed.connect(func():
 			chosen_result = {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": CardScript.new(giruda_suit, CardScript.Rank.ACE)}
 			_highlight_btn.call(ace_btn)
 		)
-		btn_row1.add_child(ace_btn)
+	else:
+		ace_btn = _make_btn.call("", true)
+		ace_btn.visible = false
+	grid.add_child(ace_btn)
 
-	vbox.add_child(btn_row1)
+	# Row 2: 조커 / 기루다K
+	var joker_disabled: bool = _dp_is_card_in_hand_or_discard_specific(-1, -1)
+	var joker_btn: Button = _make_btn.call("조커 프렌드", joker_disabled)
+	joker_btn.pressed.connect(func():
+		chosen_result = {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": CardScript.create_joker()}
+		_highlight_btn.call(joker_btn)
+	)
+	grid.add_child(joker_btn)
 
-	# 초구 프렌드
-	var first_btn: Button = _make_btn.call("초구 프렌드", vw * 0.25, false)
+	var king_btn: Button = null
+	if giruda_suit >= 0:
+		var king_disabled: bool = _dp_is_card_in_hand_or_discard_specific(giruda_suit, CardScript.Rank.KING)
+		king_btn = _make_btn.call("%s K 프렌드" % SUIT_DISPLAY.get(_dp.giruda, "?"), king_disabled)
+		king_btn.pressed.connect(func():
+			chosen_result = {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": CardScript.new(giruda_suit, CardScript.Rank.KING)}
+			_highlight_btn.call(king_btn)
+		)
+	else:
+		king_btn = _make_btn.call("", true)
+		king_btn.visible = false
+	grid.add_child(king_btn)
+
+	# Row 3: 초구 / 노프렌드
+	var first_btn: Button = _make_btn.call("초구 프렌드", false)
 	first_btn.pressed.connect(func():
 		chosen_result = {"type": DeclarerPhaseScript.FriendCallType.FIRST_TRICK_WINNER}
 		_highlight_btn.call(first_btn)
 	)
-	btn_row2.add_child(first_btn)
+	grid.add_child(first_btn)
 
-	# 노프렌드
-	var no_btn: Button = _make_btn.call("노프렌드", vw * 0.25, false)
+	var no_btn: Button = _make_btn.call("노 프렌드", false)
 	no_btn.pressed.connect(func():
 		chosen_result = {"type": DeclarerPhaseScript.FriendCallType.NO_FRIEND}
 		_highlight_btn.call(no_btn)
 	)
-	btn_row2.add_child(no_btn)
+	grid.add_child(no_btn)
 
-	# 기타
-	var other_btn: Button = _make_btn.call("기타...", vw * 0.25, false)
-	btn_row2.add_child(other_btn)
+	vbox.add_child(grid)
 
-	vbox.add_child(btn_row2)
+	# 다른 카드: suit icons + rank up/down
+	var other_row := HBoxContainer.new()
+	other_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	other_row.add_theme_constant_override("separation", 8)
 
-	# Custom selector (hidden by default)
-	var custom_box := VBoxContainer.new()
-	custom_box.name = "CustomFriend"
-	custom_box.alignment = BoxContainer.ALIGNMENT_CENTER
-	custom_box.add_theme_constant_override("separation", 8)
-	custom_box.visible = false
+	var other_label: Label = _create_label("다른 카드:", small_font, Color(0.7, 0.7, 0.7))
+	other_row.add_child(other_label)
 
 	_dp_friend_suit = CardScript.Suit.SPADE
 	_dp_friend_rank = CardScript.Rank.ACE
 
-	var icon_size: int = int(vh / 10.0)
-	var selector_row := HBoxContainer.new()
-	selector_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	selector_row.add_theme_constant_override("separation", 10)
-
+	var icon_size: int = int(vh / 12.0)
 	var suit_buttons: Array = []
 	for suit_val in [CardScript.Suit.SPADE, CardScript.Suit.DIAMOND, CardScript.Suit.HEART, CardScript.Suit.CLUB]:
 		var btn := TextureButton.new()
-		var giruda_key: int = _card_suit_to_giruda(suit_val)
-		btn.texture_normal = load(SUIT_ICONS[giruda_key])
+		btn.texture_normal = load(SUIT_ICONS[_card_suit_to_giruda(suit_val)])
 		btn.ignore_texture_size = true
 		btn.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 		btn.custom_minimum_size = Vector2(icon_size, icon_size)
@@ -1878,27 +1881,30 @@ func _dp_step_friend() -> Dictionary:
 			_dp_friend_suit = captured_suit
 			for e in suit_buttons:
 				e["button"].get_node("GoldBorder").visible = (e["suit"] == _dp_friend_suit)
-			_dp_update_custom_rank_label(custom_box)
+			_dp_update_custom_rank_label(other_row)
 		)
-		selector_row.add_child(btn)
+		other_row.add_child(btn)
 		suit_buttons.append({"button": btn, "suit": suit_val})
 
-	var rank_col := VBoxContainer.new()
-	rank_col.alignment = BoxContainer.ALIGNMENT_CENTER
-	var rank_up := Button.new()
-	rank_up.text = "▲"
-	rank_up.add_theme_font_size_override("font_size", small_font)
-	var rank_label := Label.new()
-	rank_label.name = "CustomRankLabel"
-	rank_label.text = RANK_DISPLAY.get(_dp_friend_rank, "?")
-	rank_label.add_theme_font_size_override("font_size", int(vh / 12.0))
-	rank_label.add_theme_font_override("font", _get_bold_font())
-	rank_label.add_theme_color_override("font_color", Color.WHITE)
-	rank_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	rank_label.custom_minimum_size.x = vh / 6.0
 	var rank_down := Button.new()
 	rank_down.text = "▼"
 	rank_down.add_theme_font_size_override("font_size", small_font)
+	other_row.add_child(rank_down)
+
+	var rank_label := Label.new()
+	rank_label.name = "CustomRankLabel"
+	rank_label.text = RANK_DISPLAY.get(_dp_friend_rank, "?")
+	rank_label.add_theme_font_size_override("font_size", int(vh / 10.0))
+	rank_label.add_theme_font_override("font", _get_bold_font())
+	rank_label.add_theme_color_override("font_color", Color.WHITE)
+	rank_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	rank_label.custom_minimum_size.x = vh / 8.0
+	other_row.add_child(rank_label)
+
+	var rank_up := Button.new()
+	rank_up.text = "▲"
+	rank_up.add_theme_font_size_override("font_size", small_font)
+	other_row.add_child(rank_up)
 
 	var all_ranks := [CardScript.Rank.ACE, CardScript.Rank.KING, CardScript.Rank.QUEEN, CardScript.Rank.JACK, CardScript.Rank.TEN, CardScript.Rank.NINE, CardScript.Rank.EIGHT, CardScript.Rank.SEVEN, CardScript.Rank.SIX, CardScript.Rank.FIVE, CardScript.Rank.FOUR, CardScript.Rank.THREE, CardScript.Rank.TWO]
 
@@ -1906,40 +1912,30 @@ func _dp_step_friend() -> Dictionary:
 		var idx: int = all_ranks.find(_dp_friend_rank)
 		if idx > 0:
 			_dp_friend_rank = all_ranks[idx - 1]
-			_dp_update_custom_rank_label(custom_box)
+			_dp_update_custom_rank_label(other_row)
 	)
 	rank_down.pressed.connect(func():
 		var idx: int = all_ranks.find(_dp_friend_rank)
 		if idx < all_ranks.size() - 1:
 			_dp_friend_rank = all_ranks[idx + 1]
-			_dp_update_custom_rank_label(custom_box)
+			_dp_update_custom_rank_label(other_row)
 	)
 
-	rank_col.add_child(rank_up)
-	rank_col.add_child(rank_label)
-	rank_col.add_child(rank_down)
-	selector_row.add_child(rank_col)
-	custom_box.add_child(selector_row)
-
-	var custom_select_btn := Button.new()
-	custom_select_btn.text = "이 카드 선택"
-	custom_select_btn.add_theme_font_size_override("font_size", int(vh / 20.0))
-	custom_select_btn.add_theme_font_override("font", _get_bold_font())
-	custom_select_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	custom_select_btn.name = "CustomConfirm"
-	custom_select_btn.disabled = _dp_is_card_in_hand_or_discard_specific(_dp_friend_suit, _dp_friend_rank)
-	custom_select_btn.pressed.connect(func():
+	var select_card_btn := Button.new()
+	select_card_btn.text = "선택"
+	select_card_btn.name = "CustomConfirm"
+	select_card_btn.add_theme_font_size_override("font_size", small_font)
+	select_card_btn.add_theme_font_override("font", _get_bold_font())
+	select_card_btn.disabled = _dp_is_card_in_hand_or_discard_specific(_dp_friend_suit, _dp_friend_rank)
+	select_card_btn.pressed.connect(func():
 		chosen_result = {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": CardScript.new(_dp_friend_suit, _dp_friend_rank)}
-		_highlight_btn.call(other_btn)
-		other_btn.text = "기타: %s %s" % [SUIT_DISPLAY.get(_card_suit_to_giruda(_dp_friend_suit), "?"), RANK_DISPLAY.get(_dp_friend_rank, "?")]
+		for b in all_btns:
+			b.remove_theme_color_override("font_color")
+		select_card_btn.add_theme_color_override("font_color", Color.YELLOW)
 	)
-	custom_box.add_child(custom_select_btn)
+	other_row.add_child(select_card_btn)
 
-	vbox.add_child(custom_box)
-
-	other_btn.pressed.connect(func():
-		custom_box.visible = not custom_box.visible
-	)
+	vbox.add_child(other_row)
 
 	# Confirm button
 	var confirm_btn := Button.new()
@@ -1962,6 +1958,8 @@ func _dp_step_friend() -> Dictionary:
 			_highlight_btn.call(joker_btn)
 		elif ace_btn and giruda_suit >= 0 and rec_card.suit == giruda_suit and rec_card.rank == CardScript.Rank.ACE:
 			_highlight_btn.call(ace_btn)
+		elif king_btn and giruda_suit >= 0 and rec_card.suit == giruda_suit and rec_card.rank == CardScript.Rank.KING:
+			_highlight_btn.call(king_btn)
 	elif rec_type == DeclarerPhaseScript.FriendCallType.FIRST_TRICK_WINNER:
 		_highlight_btn.call(first_btn)
 	elif rec_type == DeclarerPhaseScript.FriendCallType.NO_FRIEND:
