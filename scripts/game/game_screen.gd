@@ -13,6 +13,7 @@ const XiaoStrategyScript = preload("res://scripts/ai/xiao_strategy.gd")
 const DeclarerPhaseScript = preload("res://scripts/game_logic/declarer_phase.gd")
 const CardValidatorScript = preload("res://scripts/game_logic/card_validator.gd")
 const PrideTableScript = preload("res://scripts/ai/pride_table.gd")
+const FriendSelectorScript = preload("res://scripts/ai/friend_selector.gd")
 
 const CARD_BORDER := 1.0
 const CARD_BORDER_COLOR := Color(0.15, 0.15, 0.15, 1.0)
@@ -1707,12 +1708,8 @@ func _dp_step_friend() -> Dictionary:
 	var vh: float = get_viewport_rect().size.y
 	var vw: float = get_viewport_rect().size.x
 	var font_size: int = int(vh / 18.0)
-	var btn_font: int = int(vh / 20.0)
+	var btn_font: int = int(vh / 14.0)
 	var small_font: int = int(vh / 22.0)
-
-	_dp_friend_type = DeclarerPhaseScript.FriendCallType.CARD
-	_dp_friend_suit = CardScript.Suit.SPADE
-	_dp_friend_rank = CardScript.Rank.ACE
 
 	_dp_panel = PanelContainer.new()
 	var style := StyleBoxFlat.new()
@@ -1721,7 +1718,7 @@ func _dp_step_friend() -> Dictionary:
 	style.set_content_margin_all(20)
 	_dp_panel.add_theme_stylebox_override("panel", style)
 	_dp_panel.z_index = 100
-	_dp_panel.custom_minimum_size = Vector2(vw * 0.6, vh * 0.5)
+	_dp_panel.custom_minimum_size = Vector2(vw * 0.65, vh * 0.55)
 
 	var vbox := VBoxContainer.new()
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -1731,84 +1728,245 @@ func _dp_step_friend() -> Dictionary:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
 
-	# Friend type tabs
-	var tab_row := HBoxContainer.new()
-	tab_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	tab_row.add_theme_constant_override("separation", 20)
+	# Get AI recommendation for highlighting
+	var remaining_hand: Array = []
+	for card in _dp.hand:
+		var is_discarded: bool = false
+		for d in _dp_discard_selected:
+			if _cards_equal(card, d):
+				is_discarded = true
+				break
+		if not is_discarded:
+			remaining_hand.append(card)
+	var recommend: Dictionary = FriendSelectorScript.select(remaining_hand, _dp.giruda)
+	var rec_type: int = recommend["type"]
+	var rec_card = recommend.get("card", null)
 
-	var tab_buttons: Array = []
-	var tab_options := [
-		{"type": DeclarerPhaseScript.FriendCallType.CARD, "label": "카드"},
-		{"type": DeclarerPhaseScript.FriendCallType.FIRST_TRICK_WINNER, "label": "초구"},
-		{"type": DeclarerPhaseScript.FriendCallType.NO_FRIEND, "label": "노프렌드"},
-	]
+	# Determine mighty card for current giruda
+	var mighty_suit: int
+	var mighty_rank: int = CardScript.Rank.ACE
+	if _dp.giruda == BiddingStateScript.Giruda.SPADE:
+		mighty_suit = CardScript.Suit.DIAMOND
+	else:
+		mighty_suit = CardScript.Suit.SPADE
 
-	var content_container := VBoxContainer.new()
-	content_container.name = "FriendContent"
-	content_container.alignment = BoxContainer.ALIGNMENT_CENTER
-	content_container.add_theme_constant_override("separation", 10)
-	content_container.custom_minimum_size = Vector2(0, vh * 0.2)
+	# Determine giruda ace
+	var giruda_suit: int = _giruda_to_suit_val(_dp.giruda)
 
-	for opt in tab_options:
-		var btn := Button.new()
-		btn.text = opt["label"]
-		btn.add_theme_font_size_override("font_size", btn_font)
-		btn.add_theme_font_override("font", _get_bold_font())
-		var captured_type: int = opt["type"]
-		btn.pressed.connect(func():
-			_dp_friend_type = captured_type
-			_dp_update_friend_tabs(tab_buttons, content_container)
+	# Build quick-pick buttons
+	var btn_row1 := HBoxContainer.new()
+	btn_row1.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_row1.add_theme_constant_override("separation", 15)
+
+	var btn_row2 := HBoxContainer.new()
+	btn_row2.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_row2.add_theme_constant_override("separation", 15)
+
+	_dp_awaiting_input = true
+	var chosen_result: Dictionary = {}
+
+	# Helper to check if a card matches recommendation
+	var _rec_is_mighty: bool = rec_card != null and not rec_card.is_joker and rec_card.suit == mighty_suit and rec_card.rank == mighty_rank
+	var _rec_is_joker: bool = rec_card != null and rec_card.is_joker
+	var _rec_is_giruda_ace: bool = rec_card != null and not rec_card.is_joker and giruda_suit >= 0 and rec_card.suit == giruda_suit and rec_card.rank == CardScript.Rank.ACE and not _rec_is_mighty
+
+	# 마이티 프렌드
+	var mighty_btn := Button.new()
+	mighty_btn.text = "마이티 프렌드 ★" if _rec_is_mighty else "마이티 프렌드"
+	mighty_btn.add_theme_font_size_override("font_size", btn_font)
+	mighty_btn.add_theme_font_override("font", _get_bold_font())
+	mighty_btn.custom_minimum_size = Vector2(vw * 0.25, vh * 0.1)
+	mighty_btn.disabled = _dp_is_card_in_hand_or_discard_specific(mighty_suit, mighty_rank)
+	mighty_btn.pressed.connect(func():
+		chosen_result = {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": CardScript.new(mighty_suit, mighty_rank)}
+		_dp_awaiting_input = false
+	)
+	btn_row1.add_child(mighty_btn)
+
+	# 조커 프렌드
+	var joker_btn := Button.new()
+	joker_btn.text = "조커 프렌드 ★" if _rec_is_joker else "조커 프렌드"
+	joker_btn.add_theme_font_size_override("font_size", btn_font)
+	joker_btn.add_theme_font_override("font", _get_bold_font())
+	joker_btn.custom_minimum_size = Vector2(vw * 0.25, vh * 0.1)
+	joker_btn.disabled = _dp_is_card_in_hand_or_discard_specific(-1, -1)
+	joker_btn.pressed.connect(func():
+		chosen_result = {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": CardScript.create_joker()}
+		_dp_awaiting_input = false
+	)
+	btn_row1.add_child(joker_btn)
+
+	# 기루다A 프렌드 (only if giruda is a suit)
+	if giruda_suit >= 0:
+		var ace_btn := Button.new()
+		var ace_text: String = "%s A 프렌드" % SUIT_DISPLAY.get(_dp.giruda, "?")
+		ace_btn.text = (ace_text + " ★") if _rec_is_giruda_ace else ace_text
+		ace_btn.add_theme_font_size_override("font_size", btn_font)
+		ace_btn.add_theme_font_override("font", _get_bold_font())
+		ace_btn.custom_minimum_size = Vector2(vw * 0.25, vh * 0.1)
+		ace_btn.disabled = _dp_is_card_in_hand_or_discard_specific(giruda_suit, CardScript.Rank.ACE)
+		# If giruda ace IS the mighty, disable (already covered by mighty button)
+		if giruda_suit == mighty_suit and CardScript.Rank.ACE == mighty_rank:
+			ace_btn.disabled = true
+		ace_btn.pressed.connect(func():
+			chosen_result = {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": CardScript.new(giruda_suit, CardScript.Rank.ACE)}
+			_dp_awaiting_input = false
 		)
-		tab_row.add_child(btn)
-		tab_buttons.append({"button": btn, "type": opt["type"]})
+		btn_row1.add_child(ace_btn)
 
-	vbox.add_child(tab_row)
-	vbox.add_child(content_container)
+	vbox.add_child(btn_row1)
 
-	# Confirm button
-	var confirm_btn := Button.new()
-	confirm_btn.text = "확정"
-	confirm_btn.add_theme_font_size_override("font_size", btn_font)
-	confirm_btn.add_theme_font_override("font", _get_bold_font())
-	confirm_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	vbox.add_child(confirm_btn)
+	# 초구 프렌드
+	var first_btn := Button.new()
+	first_btn.text = "초구 프렌드"
+	first_btn.add_theme_font_size_override("font_size", btn_font)
+	first_btn.add_theme_font_override("font", _get_bold_font())
+	first_btn.custom_minimum_size = Vector2(vw * 0.25, vh * 0.1)
+	first_btn.pressed.connect(func():
+		chosen_result = {"type": DeclarerPhaseScript.FriendCallType.FIRST_TRICK_WINNER}
+		_dp_awaiting_input = false
+	)
+	btn_row2.add_child(first_btn)
+
+	# 노프렌드
+	var no_btn := Button.new()
+	no_btn.text = "노프렌드"
+	no_btn.add_theme_font_size_override("font_size", btn_font)
+	no_btn.add_theme_font_override("font", _get_bold_font())
+	no_btn.custom_minimum_size = Vector2(vw * 0.25, vh * 0.1)
+	no_btn.pressed.connect(func():
+		chosen_result = {"type": DeclarerPhaseScript.FriendCallType.NO_FRIEND}
+		_dp_awaiting_input = false
+	)
+	btn_row2.add_child(no_btn)
+
+	# 기타 (custom card selector)
+	var other_btn := Button.new()
+	other_btn.text = "기타..."
+	other_btn.add_theme_font_size_override("font_size", btn_font)
+	other_btn.add_theme_font_override("font", _get_bold_font())
+	other_btn.custom_minimum_size = Vector2(vw * 0.25, vh * 0.1)
+	btn_row2.add_child(other_btn)
+
+	vbox.add_child(btn_row2)
+
+	# Custom selector (hidden by default)
+	var custom_box := VBoxContainer.new()
+	custom_box.name = "CustomFriend"
+	custom_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	custom_box.add_theme_constant_override("separation", 8)
+	custom_box.visible = false
+
+	_dp_friend_suit = CardScript.Suit.SPADE
+	_dp_friend_rank = CardScript.Rank.ACE
+
+	var icon_size: int = int(vh / 10.0)
+	var selector_row := HBoxContainer.new()
+	selector_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	selector_row.add_theme_constant_override("separation", 10)
+
+	var suit_buttons: Array = []
+	for suit_val in [CardScript.Suit.SPADE, CardScript.Suit.DIAMOND, CardScript.Suit.HEART, CardScript.Suit.CLUB]:
+		var btn := TextureButton.new()
+		var giruda_key: int = _card_suit_to_giruda(suit_val)
+		btn.texture_normal = load(SUIT_ICONS[giruda_key])
+		btn.ignore_texture_size = true
+		btn.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+		btn.custom_minimum_size = Vector2(icon_size, icon_size)
+		var border := Panel.new()
+		border.name = "GoldBorder"
+		var bstyle := StyleBoxFlat.new()
+		bstyle.bg_color = Color(0, 0, 0, 0)
+		bstyle.border_color = Color(1.0, 0.8, 0.2)
+		bstyle.set_border_width_all(3)
+		bstyle.set_corner_radius_all(4)
+		border.add_theme_stylebox_override("panel", bstyle)
+		border.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		border.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		border.visible = (suit_val == _dp_friend_suit)
+		btn.add_child(border)
+		var captured_suit: int = suit_val
+		btn.pressed.connect(func():
+			_dp_friend_suit = captured_suit
+			for e in suit_buttons:
+				e["button"].get_node("GoldBorder").visible = (e["suit"] == _dp_friend_suit)
+			_dp_update_custom_rank_label(custom_box)
+		)
+		selector_row.add_child(btn)
+		suit_buttons.append({"button": btn, "suit": suit_val})
+
+	# Rank: display + up/down
+	var rank_col := VBoxContainer.new()
+	rank_col.alignment = BoxContainer.ALIGNMENT_CENTER
+	var rank_up := Button.new()
+	rank_up.text = "▲"
+	rank_up.add_theme_font_size_override("font_size", small_font)
+	var rank_label := Label.new()
+	rank_label.name = "CustomRankLabel"
+	rank_label.text = RANK_DISPLAY.get(_dp_friend_rank, "?")
+	rank_label.add_theme_font_size_override("font_size", int(vh / 12.0))
+	rank_label.add_theme_font_override("font", _get_bold_font())
+	rank_label.add_theme_color_override("font_color", Color.WHITE)
+	rank_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	rank_label.custom_minimum_size.x = vh / 6.0
+	var rank_down := Button.new()
+	rank_down.text = "▼"
+	rank_down.add_theme_font_size_override("font_size", small_font)
+
+	var all_ranks := [CardScript.Rank.ACE, CardScript.Rank.KING, CardScript.Rank.QUEEN, CardScript.Rank.JACK, CardScript.Rank.TEN, CardScript.Rank.NINE, CardScript.Rank.EIGHT, CardScript.Rank.SEVEN, CardScript.Rank.SIX, CardScript.Rank.FIVE, CardScript.Rank.FOUR, CardScript.Rank.THREE, CardScript.Rank.TWO]
+
+	rank_up.pressed.connect(func():
+		var idx: int = all_ranks.find(_dp_friend_rank)
+		if idx > 0:
+			_dp_friend_rank = all_ranks[idx - 1]
+			_dp_update_custom_rank_label(custom_box)
+	)
+	rank_down.pressed.connect(func():
+		var idx: int = all_ranks.find(_dp_friend_rank)
+		if idx < all_ranks.size() - 1:
+			_dp_friend_rank = all_ranks[idx + 1]
+			_dp_update_custom_rank_label(custom_box)
+	)
+
+	rank_col.add_child(rank_up)
+	rank_col.add_child(rank_label)
+	rank_col.add_child(rank_down)
+	selector_row.add_child(rank_col)
+
+	custom_box.add_child(selector_row)
+
+	var custom_confirm := Button.new()
+	custom_confirm.name = "CustomConfirm"
+	custom_confirm.text = "이 카드로 확정"
+	custom_confirm.add_theme_font_size_override("font_size", int(vh / 20.0))
+	custom_confirm.add_theme_font_override("font", _get_bold_font())
+	custom_confirm.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	custom_confirm.disabled = _dp_is_card_in_hand_or_discard_specific(_dp_friend_suit, _dp_friend_rank)
+	custom_confirm.pressed.connect(func():
+		chosen_result = {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": CardScript.new(_dp_friend_suit, _dp_friend_rank)}
+		_dp_awaiting_input = false
+	)
+	custom_box.add_child(custom_confirm)
+
+	vbox.add_child(custom_box)
+
+	other_btn.pressed.connect(func():
+		custom_box.visible = not custom_box.visible
+	)
 
 	_dp_panel.add_child(vbox)
 	_dp_panel.visible = false
 	add_child(_dp_panel)
-
-	_dp_update_friend_tabs(tab_buttons, content_container)
-
 	await get_tree().process_frame
 	_dp_panel.position = get_viewport_rect().size / 2.0 - _dp_panel.size / 2.0
 	_dp_panel.visible = true
-
-	_dp_awaiting_input = true
-	confirm_btn.pressed.connect(func():
-		if _dp_awaiting_input:
-			_dp_awaiting_input = false
-	)
 
 	while _dp_awaiting_input:
 		await get_tree().process_frame
 
 	_dp_panel.queue_free()
 	_dp_panel = null
-
-	match _dp_friend_type:
-		DeclarerPhaseScript.FriendCallType.CARD:
-			var card
-			if _dp_friend_suit < 0:
-				card = CardScript.create_joker()
-			else:
-				card = CardScript.new(_dp_friend_suit, _dp_friend_rank)
-			return {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": card}
-		DeclarerPhaseScript.FriendCallType.FIRST_TRICK_WINNER:
-			return {"type": DeclarerPhaseScript.FriendCallType.FIRST_TRICK_WINNER}
-		DeclarerPhaseScript.FriendCallType.NO_FRIEND:
-			return {"type": DeclarerPhaseScript.FriendCallType.NO_FRIEND}
-		_:
-			return {"type": DeclarerPhaseScript.FriendCallType.NO_FRIEND}
+	return chosen_result
 
 
 func _dp_is_card_in_hand_or_discard_specific(suit: int, rank: int) -> bool:
@@ -1826,126 +1984,22 @@ func _dp_is_card_in_hand_or_discard_specific(suit: int, rank: int) -> bool:
 	return false
 
 
-func _dp_update_rank_buttons(rank_buttons: Array) -> void:
-	for entry in rank_buttons:
-		var btn: Button = entry["button"]
-		var rank_val: int = entry["rank"]
-		if _dp_friend_suit < 0:
-			btn.disabled = true
-		else:
-			btn.disabled = _dp_is_card_in_hand_or_discard_specific(_dp_friend_suit, rank_val)
+func _dp_update_custom_rank_label(custom_box: VBoxContainer) -> void:
+	var rank_label = custom_box.find_child("CustomRankLabel", true, false)
+	if rank_label:
+		rank_label.text = RANK_DISPLAY.get(_dp_friend_rank, "?")
+	var confirm_btn = custom_box.find_child("CustomConfirm", true, false)
+	if confirm_btn:
+		confirm_btn.disabled = _dp_is_card_in_hand_or_discard_specific(_dp_friend_suit, _dp_friend_rank)
 
 
-func _dp_update_friend_tabs(tab_buttons: Array, content: VBoxContainer) -> void:
-	# Highlight active tab
-	for entry in tab_buttons:
-		var btn: Button = entry["button"]
-		if entry["type"] == _dp_friend_type:
-			btn.add_theme_color_override("font_color", Color.YELLOW)
-		else:
-			btn.remove_theme_color_override("font_color")
-
-	# Clear content
-	for child in content.get_children():
-		child.queue_free()
-
-	var vh: float = get_viewport_rect().size.y
-	var small_font: int = int(vh / 22.0)
-
-	if _dp_friend_type == DeclarerPhaseScript.FriendCallType.CARD:
-		# Suit selection
-		var icon_size: int = int(vh / 8.0)
-		var suit_row := HBoxContainer.new()
-		suit_row.alignment = BoxContainer.ALIGNMENT_CENTER
-		suit_row.add_theme_constant_override("separation", 8)
-
-		var suit_buttons: Array = []
-		var rank_buttons: Array = []
-
-		# Rank selection (created first so suit callbacks can reference it)
-		var rank_row := HBoxContainer.new()
-		rank_row.alignment = BoxContainer.ALIGNMENT_CENTER
-		rank_row.add_theme_constant_override("separation", 4)
-
-		for rank_val in [CardScript.Rank.ACE, CardScript.Rank.KING, CardScript.Rank.QUEEN, CardScript.Rank.JACK, CardScript.Rank.TEN, CardScript.Rank.NINE, CardScript.Rank.EIGHT, CardScript.Rank.SEVEN, CardScript.Rank.SIX, CardScript.Rank.FIVE, CardScript.Rank.FOUR, CardScript.Rank.THREE, CardScript.Rank.TWO]:
-			var btn := Button.new()
-			btn.text = RANK_DISPLAY[rank_val]
-			btn.add_theme_font_size_override("font_size", small_font)
-			btn.custom_minimum_size = Vector2(int(vh / 20.0), int(vh / 16.0))
-			var captured_rank: int = rank_val
-			btn.pressed.connect(func():
-				_dp_friend_rank = captured_rank
-				if _dp_friend_suit < 0:
-					_dp_friend_suit = CardScript.Suit.SPADE
-					for e in suit_buttons:
-						e["button"].get_node("GoldBorder").visible = (e["suit"] == _dp_friend_suit)
-					_dp_update_rank_buttons(rank_buttons)
-			)
-			rank_row.add_child(btn)
-			rank_buttons.append({"button": btn, "rank": rank_val})
-
-		for suit_val in [CardScript.Suit.SPADE, CardScript.Suit.DIAMOND, CardScript.Suit.HEART, CardScript.Suit.CLUB]:
-			var btn := TextureButton.new()
-			var giruda_key: int = _card_suit_to_giruda(suit_val)
-			btn.texture_normal = load(SUIT_ICONS[giruda_key])
-			btn.ignore_texture_size = true
-			btn.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
-			btn.custom_minimum_size = Vector2(icon_size, icon_size)
-
-			var border := Panel.new()
-			border.name = "GoldBorder"
-			var bstyle := StyleBoxFlat.new()
-			bstyle.bg_color = Color(0, 0, 0, 0)
-			bstyle.border_color = Color(1.0, 0.8, 0.2)
-			bstyle.set_border_width_all(3)
-			bstyle.set_corner_radius_all(4)
-			border.add_theme_stylebox_override("panel", bstyle)
-			border.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			border.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-			border.visible = (suit_val == _dp_friend_suit)
-			btn.add_child(border)
-
-			var captured_suit: int = suit_val
-			btn.pressed.connect(func():
-				_dp_friend_suit = captured_suit
-				for e in suit_buttons:
-					e["button"].get_node("GoldBorder").visible = (e["suit"] == _dp_friend_suit)
-				_dp_update_rank_buttons(rank_buttons)
-			)
-			suit_row.add_child(btn)
-			suit_buttons.append({"button": btn, "suit": suit_val})
-
-		# Joker button
-		var joker_btn := Button.new()
-		joker_btn.text = "조커"
-		joker_btn.add_theme_font_size_override("font_size", small_font)
-		joker_btn.add_theme_font_override("font", _get_bold_font())
-		joker_btn.custom_minimum_size = Vector2(icon_size, icon_size)
-		var has_joker: bool = _dp_is_card_in_hand_or_discard_specific(-1, -1)
-		joker_btn.disabled = has_joker
-		joker_btn.pressed.connect(func():
-			_dp_friend_suit = -1
-			_dp_friend_rank = -1
-			for e in suit_buttons:
-				e["button"].get_node("GoldBorder").visible = false
-			_dp_update_rank_buttons(rank_buttons)
-		)
-		suit_row.add_child(joker_btn)
-
-		content.add_child(suit_row)
-		content.add_child(rank_row)
-
-		_dp_update_rank_buttons(rank_buttons)
-
-	elif _dp_friend_type == DeclarerPhaseScript.FriendCallType.FIRST_TRICK_WINNER:
-		var label: Label = _create_label("첫 트릭의 승자가 프렌드", small_font, Color.WHITE)
-		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		content.add_child(label)
-
-	elif _dp_friend_type == DeclarerPhaseScript.FriendCallType.NO_FRIEND:
-		var label: Label = _create_label("프렌드 없이 혼자 진행", small_font, Color.WHITE)
-		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		content.add_child(label)
+func _giruda_to_suit_val(giruda: int) -> int:
+	match giruda:
+		BiddingStateScript.Giruda.SPADE: return CardScript.Suit.SPADE
+		BiddingStateScript.Giruda.DIAMOND: return CardScript.Suit.DIAMOND
+		BiddingStateScript.Giruda.HEART: return CardScript.Suit.HEART
+		BiddingStateScript.Giruda.CLUB: return CardScript.Suit.CLUB
+	return -1
 
 
 func _dp_show_result() -> void:
