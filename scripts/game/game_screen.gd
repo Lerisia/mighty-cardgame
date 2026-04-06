@@ -894,6 +894,17 @@ func _move_kitty_to_declarer(declarer: int) -> void:
 			kitty_tween.tween_interval(0.4)
 		await kitty_tween.finished
 
+		# Reassign z_index for all 13 cards based on sorted position
+		for entry in p0_card_nodes:
+			var node: Control = entry["node"]
+			var card_data = entry["card_data"]
+			if not is_instance_valid(node):
+				continue
+			for j in range(13):
+				if _cards_equal(sorted_13[j], card_data):
+					node.z_index = j
+					break
+
 
 const CARD_CORNER_RADIUS := 4.0
 
