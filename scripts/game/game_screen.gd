@@ -786,6 +786,7 @@ func _resort_hand_with_giruda(giruda: int) -> void:
 	for entry in p0_card_nodes:
 		if entry.has("used"):
 			entry.erase("used")
+	_reorder_p0_card_children()
 
 
 func _move_kitty_to_declarer(declarer: int) -> void:
@@ -900,16 +901,8 @@ func _move_kitty_to_declarer(declarer: int) -> void:
 			kitty_tween.tween_interval(0.4)
 		await kitty_tween.finished
 
-		# Reassign z_index for all 13 cards based on sorted position
-		for entry in p0_card_nodes:
-			var node: Control = entry["node"]
-			var card_data = entry["card_data"]
-			if not is_instance_valid(node):
-				continue
-			for j in range(13):
-				if _cards_equal(sorted_13[j], card_data):
-					node.z_index = j
-					break
+		# Reorder children so rightmost card is on top
+		_reorder_p0_card_children()
 
 
 const CARD_CORNER_RADIUS := 4.0
@@ -1213,6 +1206,15 @@ func _show_player_names() -> void:
 		score_labels.append(score_label)
 
 
+func _reorder_p0_card_children() -> void:
+	# Ensure child order matches sorted hand: leftmost = first child, rightmost = last child (on top)
+	for i in range(hands[0].size()):
+		for entry in p0_card_nodes:
+			if _cards_equal(entry["card_data"], hands[0][i]) and is_instance_valid(entry["node"]):
+				move_child(entry["node"], -1)
+				break
+
+
 func _cards_equal(a, b) -> bool:
 	if a.is_joker and b.is_joker:
 		return true
@@ -1486,16 +1488,8 @@ func _dp_step_discard() -> void:
 	_dp_selected_giruda = _dp.giruda
 	_dp_selected_bid = _dp.bid
 
-	# Fix z_index based on sorted hand order (not append order)
-	for entry in p0_card_nodes:
-		var node: Control = entry["node"]
-		var card_data = entry["card_data"]
-		if not is_instance_valid(node):
-			continue
-		for j in range(hands[0].size()):
-			if _cards_equal(hands[0][j], card_data):
-				node.z_index = j
-				break
+	# Ensure child order: leftmost card first, rightmost on top
+	_reorder_p0_card_children()
 
 	var vh: float = get_viewport_rect().size.y
 	var font_size: int = int(vh / 18.0)
