@@ -1789,35 +1789,26 @@ func _dp_step_friend() -> Dictionary:
 	var preview_h: float = vh * 0.35
 	var preview_card_size: Vector2 = Vector2(preview_h * CardUtilScript.CARD_ASPECT, preview_h)
 
-	var preview_container := Control.new()
-	preview_container.custom_minimum_size = preview_card_size
-
 	var preview_img := TextureRect.new()
 	preview_img.name = "FriendPreview"
 	preview_img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	preview_img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	preview_img.custom_minimum_size = preview_card_size
-	preview_container.add_child(preview_img)
+	preview_box.add_child(preview_img)
 
-	# Overlay label for X or ? on blank cards
 	var overlay_label := Label.new()
 	overlay_label.name = "FriendOverlay"
 	overlay_label.add_theme_font_size_override("font_size", int(preview_h * 0.5))
 	overlay_label.add_theme_font_override("font", _get_bold_font())
 	overlay_label.add_theme_color_override("font_color", Color(0.8, 0.2, 0.2))
 	overlay_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	overlay_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	overlay_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay_label.custom_minimum_size = preview_card_size
 	overlay_label.text = ""
-	preview_container.add_child(overlay_label)
-
-	preview_box.add_child(preview_container)
+	preview_box.add_child(overlay_label)
 
 	var preview_label := _create_label("", small_font, Color.WHITE)
 	preview_label.name = "FriendPreviewLabel"
 	preview_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	preview_label.custom_minimum_size = Vector2(preview_card_size.x * 1.5, small_font * 2)
-	preview_label.clip_text = true
+	preview_label.custom_minimum_size = Vector2(preview_card_size.x, small_font * 2)
 	preview_box.add_child(preview_label)
 
 	# Get AI recommendation for highlighting
@@ -1934,19 +1925,37 @@ func _dp_step_friend() -> Dictionary:
 	)
 	grid.add_child(no_btn)
 
-	# Row 4: 지정 프렌드 (cycles through players 1-4)
-	var _player_idx := [1]  # Array for lambda capture
-	var player_btn: Button = _make_btn.call("지정: %s" % PLAYER_NAMES[1], not _dp.options.allow_player_friend)
-	player_btn.pressed.connect(func():
-		_dp_friend_result = {"type": DeclarerPhaseScript.FriendCallType.PLAYER, "player_index": _player_idx[0]}
-		_highlight_btn.call(player_btn)
-		# Cycle to next player on next press
-		_player_idx[0] = (_player_idx[0] % 4) + 1
-		player_btn.text = "지정: %s" % PLAYER_NAMES[_player_idx[0]]
-	)
+	# Row 4: 지정 프렌드 — shows sub-buttons for each player
+	var player_btn: Button = _make_btn.call("지정 프렌드", not _dp.options.allow_player_friend)
 	grid.add_child(player_btn)
 
+	# Player sub-panel (hidden until player_btn clicked)
+	var player_sub := HBoxContainer.new()
+	player_sub.name = "PlayerSub"
+	player_sub.alignment = BoxContainer.ALIGNMENT_CENTER
+	player_sub.add_theme_constant_override("separation", 8)
+	player_sub.visible = false
+
+	for pi in range(1, 5):
+		var p_btn := Button.new()
+		p_btn.text = PLAYER_NAMES[pi]
+		p_btn.add_theme_font_size_override("font_size", small_font)
+		p_btn.add_theme_font_override("font", _get_bold_font())
+		p_btn.custom_minimum_size = Vector2(btn_w * 0.45, vh * 0.06)
+		var captured_pi: int = pi
+		p_btn.pressed.connect(func():
+			_dp_friend_result = {"type": DeclarerPhaseScript.FriendCallType.PLAYER, "player_index": captured_pi}
+			player_btn.text = "지정: %s" % PLAYER_NAMES[captured_pi]
+			_highlight_btn.call(player_btn)
+		)
+		player_sub.add_child(p_btn)
+
+	player_btn.pressed.connect(func():
+		player_sub.visible = not player_sub.visible
+	)
+
 	vbox.add_child(grid)
+	vbox.add_child(player_sub)
 
 	# 다른 카드: suit icons + rank up/down
 	var other_row := HBoxContainer.new()

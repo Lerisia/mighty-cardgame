@@ -81,7 +81,7 @@ static func _get_power_num(card) -> int:
 
 
 static func _count_higher_used(suit_idx: int, power: int, is_point: bool, used_cards: Array) -> int:
-	var top: int = 13 if is_point else 8
+	var top: int = 12 if is_point else 7
 	var order: int = 0
 	for i in range(top, power, -1):
 		if used_cards[suit_idx].has(i):
