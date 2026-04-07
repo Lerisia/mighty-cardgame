@@ -81,16 +81,23 @@ func decide_joker_call(hand: Array, giruda: int, trick_number: int) -> bool:
 
 
 func decide_discard(hand: Array, giruda: int) -> Array:
-	var scored: Array = []
-	for i in range(hand.size()):
-		var penalty: int = PenaltyTableScript.card_usage_penalty(hand[i], giruda, [{}, {}, {}, {}])
-		scored.append({"index": i, "penalty": penalty})
-	scored.sort_custom(func(a, b): return a["penalty"] < b["penalty"])
+	var best_pride: int = -999999
+	var best_discard: Array = []
 
-	var discard: Array = []
-	for i in range(mini(3, scored.size())):
-		discard.append(hand[scored[i]["index"]])
-	return discard
+	var n: int = hand.size()
+	for i in range(n - 2):
+		for j in range(i + 1, n - 1):
+			for k in range(j + 1, n):
+				var remaining: Array = []
+				for r in range(n):
+					if r != i and r != j and r != k:
+						remaining.append(hand[r])
+				var pride: int = PrideTableScript.calc_pride(giruda, remaining)
+				if pride > best_pride:
+					best_pride = pride
+					best_discard = [hand[i], hand[j], hand[k]]
+
+	return best_discard
 
 
 func _pick_joker_lead_suit(hand: Array, giruda: int) -> int:

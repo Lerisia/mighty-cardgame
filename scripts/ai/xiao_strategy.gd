@@ -147,31 +147,45 @@ func decide_joker_call(hand: Array, giruda: int, trick_number: int) -> bool:
 
 
 func decide_discard(hand: Array, giruda: int) -> Array:
-	var scored: Array = []
-	for i in range(hand.size()):
-		var card = hand[i]
-		if CardValidatorScript.is_mighty(card, giruda):
+	var best_score: int = -999999
+	var best_discard: Array = []
+
+	var n: int = hand.size()
+	for i in range(n - 2):
+		if not _is_valid_discard_candidate(hand[i], giruda):
 			continue
-		if not card.is_joker and _is_giruda_suit_card(card, giruda):
-			if card.rank >= CardScript.Rank.KING:
+		for j in range(i + 1, n - 1):
+			if not _is_valid_discard_candidate(hand[j], giruda):
 				continue
-		var penalty: int = _discard_score(card, giruda)
-		scored.append({"index": i, "penalty": penalty})
+			for k in range(j + 1, n):
+				if not _is_valid_discard_candidate(hand[k], giruda):
+					continue
+				var remaining: Array = []
+				for r in range(n):
+					if r != i and r != j and r != k:
+						remaining.append(hand[r])
+				var score: int = _calculate_hand_strength(giruda, remaining)
+				if score > best_score:
+					best_score = score
+					best_discard = [hand[i], hand[j], hand[k]]
 
-	scored.sort_custom(func(a, b): return a["penalty"] < b["penalty"])
+	if best_discard.is_empty():
+		# Fallback: no valid 3-card combination found (all cards are protected).
+		# Pick the 3 lowest-scored cards ignoring protection.
+		var n2: int = hand.size()
+		for i in range(n2 - 2):
+			for j in range(i + 1, n2 - 1):
+				for k in range(j + 1, n2):
+					var remaining: Array = []
+					for r in range(n2):
+						if r != i and r != j and r != k:
+							remaining.append(hand[r])
+					var score: int = _calculate_hand_strength(giruda, remaining)
+					if score > best_score:
+						best_score = score
+						best_discard = [hand[i], hand[j], hand[k]]
 
-	var discard := []
-	for i in range(mini(3, scored.size())):
-		discard.append(hand[scored[i]["index"]])
-
-	if discard.size() < 3:
-		for i in range(hand.size()):
-			if discard.size() >= 3:
-				break
-			if not discard.has(hand[i]):
-				discard.append(hand[i])
-
-	return discard
+	return best_discard
 
 
 func init_probability(player_count: int, my_index: int, declarer_index: int, giruda: int) -> void:
@@ -410,6 +424,18 @@ func _is_highest_remaining(card, used_cards: Array) -> bool:
 	for r in range(12, power, -1):
 		if not used_cards[suit].has(r):
 			return false
+	return true
+
+
+func _is_valid_discard_candidate(card, giruda: int) -> bool:
+	if CardValidatorScript.is_mighty(card, giruda):
+		return false
+	if card.is_joker:
+		return false
+	if card.rank == CardScript.Rank.ACE:
+		return false
+	if _is_giruda_suit_card(card, giruda) and card.rank == CardScript.Rank.KING:
+		return false
 	return true
 
 
