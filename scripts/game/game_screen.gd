@@ -1816,7 +1816,8 @@ func _dp_step_friend() -> Dictionary:
 	var preview_label := _create_label("", small_font, Color.WHITE)
 	preview_label.name = "FriendPreviewLabel"
 	preview_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	preview_label.custom_minimum_size.x = preview_card_size.x
+	preview_label.custom_minimum_size = Vector2(preview_card_size.x * 1.5, small_font * 2)
+	preview_label.clip_text = true
 	preview_box.add_child(preview_label)
 
 	# Get AI recommendation for highlighting
@@ -2222,6 +2223,8 @@ func _dp_show_result() -> void:
 			friend_text = "초구 프렌드"
 		DeclarerPhaseScript.FriendCallType.NO_FRIEND:
 			friend_text = "노프렌드"
+		DeclarerPhaseScript.FriendCallType.PLAYER:
+			friend_text = "%s 지정 프렌드" % PLAYER_NAMES[_dp.friend_call_player]
 
 	var vh: float = get_viewport_rect().size.y
 	var font_size: int = int(vh / 18.0)
