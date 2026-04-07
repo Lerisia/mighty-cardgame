@@ -1955,7 +1955,6 @@ func _dp_step_friend() -> Dictionary:
 		var captured_pi: int = pi
 		p_btn.pressed.connect(func():
 			_dp_friend_result = {"type": DeclarerPhaseScript.FriendCallType.PLAYER, "player_index": captured_pi}
-			player_btn.text = "지정: %s" % PLAYER_NAMES[captured_pi]
 			_highlight_btn.call(player_btn)
 		)
 		player_sub.add_child(p_btn)
