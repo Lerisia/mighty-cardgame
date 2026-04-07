@@ -1763,11 +1763,15 @@ func _dp_step_friend() -> Dictionary:
 	style.set_content_margin_all(20)
 	_dp_panel.add_theme_stylebox_override("panel", style)
 	_dp_panel.z_index = 100
-	_dp_panel.custom_minimum_size = Vector2(vw * 0.75, vh * 0.55)
+
+	# Fixed panel size — never changes regardless of content
+	var panel_size := Vector2(vw * 0.78, vh * 0.7)
+	_dp_panel.custom_minimum_size = panel_size
 
 	var outer_vbox := VBoxContainer.new()
 	outer_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	outer_vbox.add_theme_constant_override("separation", 8)
+	outer_vbox.clip_contents = true
 
 	var title: Label = _create_label("프렌드 선택", font_size, Color.YELLOW)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1935,37 +1939,26 @@ func _dp_step_friend() -> Dictionary:
 	)
 	grid.add_child(no_btn)
 
-	# Row 4: 지정 프렌드 — shows sub-buttons for each player
-	var player_btn: Button = _make_btn.call("지정 프렌드", not _dp.options.allow_player_friend)
-	grid.add_child(player_btn)
-
-	# Player sub-panel (hidden until player_btn clicked)
-	var player_sub := HBoxContainer.new()
-	player_sub.name = "PlayerSub"
-	player_sub.alignment = BoxContainer.ALIGNMENT_CENTER
-	player_sub.add_theme_constant_override("separation", 8)
-	player_sub.visible = false
-
-	for pi in range(1, 5):
-		var p_btn := Button.new()
-		p_btn.text = PLAYER_NAMES[pi]
-		p_btn.add_theme_font_size_override("font_size", small_font)
-		p_btn.add_theme_font_override("font", _get_bold_font())
-		p_btn.custom_minimum_size = Vector2(btn_w * 0.45, vh * 0.06)
-		var captured_pi: int = pi
-		p_btn.pressed.connect(func():
-			_dp_friend_result = {"type": DeclarerPhaseScript.FriendCallType.PLAYER, "player_index": captured_pi}
-			_highlight_btn.call(player_btn)
-		)
-		player_sub.add_child(p_btn)
-
-	player_btn.pressed.connect(func():
-		player_sub.visible = not player_sub.visible
-	)
+	# Row 4: 지정 프렌드 — small name buttons
+	if _dp.options.allow_player_friend:
+		var player_row := HBoxContainer.new()
+		player_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		player_row.add_theme_constant_override("separation", 6)
+		for pi in range(1, 5):
+			var p_btn := Button.new()
+			p_btn.text = PLAYER_NAMES[pi]
+			p_btn.add_theme_font_size_override("font_size", small_font)
+			p_btn.add_theme_font_override("font", _get_bold_font())
+			all_btns.append(p_btn)
+			var captured_pi: int = pi
+			p_btn.pressed.connect(func():
+				_dp_friend_result = {"type": DeclarerPhaseScript.FriendCallType.PLAYER, "player_index": captured_pi}
+				_highlight_btn.call(p_btn)
+			)
+			player_row.add_child(p_btn)
+		vbox.add_child(player_row)
 
 	vbox.add_child(grid)
-	vbox.add_child(player_sub)
-
 	# 다른 카드: suit icons + rank up/down
 	var other_row := HBoxContainer.new()
 	other_row.alignment = BoxContainer.ALIGNMENT_CENTER
