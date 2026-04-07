@@ -1789,11 +1789,17 @@ func _dp_step_friend() -> Dictionary:
 	var preview_h: float = vh * 0.35
 	var preview_card_size: Vector2 = Vector2(preview_h * CardUtilScript.CARD_ASPECT, preview_h)
 
+	# Card image + overlay stacked in a fixed-size container
+	var card_container := Control.new()
+	card_container.custom_minimum_size = preview_card_size
+	card_container.size = preview_card_size
+
 	var preview_img := TextureRect.new()
 	preview_img.name = "FriendPreview"
 	preview_img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	preview_img.custom_minimum_size = preview_card_size
-	preview_box.add_child(preview_img)
+	preview_img.position = Vector2.ZERO
+	preview_img.size = preview_card_size
+	card_container.add_child(preview_img)
 
 	var overlay_label := Label.new()
 	overlay_label.name = "FriendOverlay"
@@ -1801,14 +1807,18 @@ func _dp_step_friend() -> Dictionary:
 	overlay_label.add_theme_font_override("font", _get_bold_font())
 	overlay_label.add_theme_color_override("font_color", Color(0.8, 0.2, 0.2))
 	overlay_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	overlay_label.custom_minimum_size = preview_card_size
+	overlay_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	overlay_label.position = Vector2.ZERO
+	overlay_label.size = preview_card_size
 	overlay_label.text = ""
-	preview_box.add_child(overlay_label)
+	card_container.add_child(overlay_label)
+
+	preview_box.add_child(card_container)
 
 	var preview_label := _create_label("", small_font, Color.WHITE)
 	preview_label.name = "FriendPreviewLabel"
 	preview_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	preview_label.custom_minimum_size = Vector2(preview_card_size.x, small_font * 2)
+	preview_label.custom_minimum_size = Vector2(preview_card_size.x, 0)
 	preview_box.add_child(preview_label)
 
 	# Get AI recommendation for highlighting
