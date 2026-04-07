@@ -1940,8 +1940,9 @@ func _dp_step_friend() -> Dictionary:
 	grid.add_child(no_btn)
 
 	# Row 4: 지정 프렌드 — small name buttons
+	var player_row: HBoxContainer = null
 	if _dp.options.allow_player_friend:
-		var player_row := HBoxContainer.new()
+		player_row = HBoxContainer.new()
 		player_row.alignment = BoxContainer.ALIGNMENT_CENTER
 		player_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		for pi in range(1, 5):
@@ -1958,8 +1959,7 @@ func _dp_step_friend() -> Dictionary:
 			)
 			player_row.add_child(p_btn)
 	vbox.add_child(grid)
-
-	if _dp.options.allow_player_friend:
+	if player_row:
 		vbox.add_child(player_row)
 	# 다른 카드: suit icons + rank up/down
 	var other_row := HBoxContainer.new()
