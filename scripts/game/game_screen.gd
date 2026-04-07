@@ -80,6 +80,7 @@ var _dp_awaiting_input: bool = false
 var _dp_friend_type: int = DeclarerPhaseScript.FriendCallType.CARD
 var _dp_friend_suit: int = CardScript.Suit.SPADE
 var _dp_friend_rank: int = CardScript.Rank.ACE
+var _dp_friend_result: Dictionary = {}
 
 
 func _ready() -> void:
@@ -1785,15 +1786,37 @@ func _dp_step_friend() -> Dictionary:
 	var preview_box := VBoxContainer.new()
 	preview_box.alignment = BoxContainer.ALIGNMENT_CENTER
 	preview_box.add_theme_constant_override("separation", 5)
-	var preview_card_size: Vector2 = CardUtilScript.get_card_size(get_viewport()) * 1.3
+	var preview_h: float = vh * 0.35
+	var preview_card_size: Vector2 = Vector2(preview_h * CardUtilScript.CARD_ASPECT, preview_h)
+
+	var preview_container := Control.new()
+	preview_container.custom_minimum_size = preview_card_size
+
 	var preview_img := TextureRect.new()
 	preview_img.name = "FriendPreview"
 	preview_img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	preview_img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	preview_img.custom_minimum_size = preview_card_size
-	preview_box.add_child(preview_img)
+	preview_container.add_child(preview_img)
+
+	# Overlay label for X or ? on blank cards
+	var overlay_label := Label.new()
+	overlay_label.name = "FriendOverlay"
+	overlay_label.add_theme_font_size_override("font_size", int(preview_h * 0.5))
+	overlay_label.add_theme_font_override("font", _get_bold_font())
+	overlay_label.add_theme_color_override("font_color", Color(0.8, 0.2, 0.2))
+	overlay_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	overlay_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	overlay_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay_label.text = ""
+	preview_container.add_child(overlay_label)
+
+	preview_box.add_child(preview_container)
+
 	var preview_label := _create_label("", small_font, Color.WHITE)
 	preview_label.name = "FriendPreviewLabel"
 	preview_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	preview_label.custom_minimum_size.x = preview_card_size.x
 	preview_box.add_child(preview_label)
 
 	# Get AI recommendation for highlighting
@@ -1829,7 +1852,7 @@ func _dp_step_friend() -> Dictionary:
 	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 
 	_dp_awaiting_input = true
-	var chosen_result: Dictionary = recommend.duplicate()
+	_dp_friend_result = recommend.duplicate()
 	var all_btns: Array = []
 	var btn_w: float = vw * 0.28
 
@@ -1839,7 +1862,7 @@ func _dp_step_friend() -> Dictionary:
 				b.add_theme_color_override("font_color", Color.YELLOW)
 			else:
 				b.remove_theme_color_override("font_color")
-		_dp_update_friend_preview(chosen_result)
+		_dp_update_friend_preview(_dp_friend_result)
 
 	var _make_btn := func(text: String, disabled: bool) -> Button:
 		var btn := Button.new()
@@ -1855,7 +1878,7 @@ func _dp_step_friend() -> Dictionary:
 	var mighty_disabled: bool = _dp_is_card_in_hand_or_discard_specific(mighty_suit, mighty_rank)
 	var mighty_btn: Button = _make_btn.call("마이티 프렌드", mighty_disabled)
 	mighty_btn.pressed.connect(func():
-		chosen_result = {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": CardScript.new(mighty_suit, mighty_rank)}
+		_dp_friend_result = {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": CardScript.new(mighty_suit, mighty_rank)}
 		_highlight_btn.call(mighty_btn)
 	)
 	grid.add_child(mighty_btn)
@@ -1865,21 +1888,20 @@ func _dp_step_friend() -> Dictionary:
 		var ace_disabled: bool = _dp_is_card_in_hand_or_discard_specific(giruda_suit, CardScript.Rank.ACE)
 		if giruda_suit == mighty_suit and CardScript.Rank.ACE == mighty_rank:
 			ace_disabled = true
-		ace_btn = _make_btn.call("%s A 프렌드" % SUIT_DISPLAY.get(_dp.giruda, "?"), ace_disabled)
+		ace_btn = _make_btn.call("기루다 A 프렌드", ace_disabled)
 		ace_btn.pressed.connect(func():
-			chosen_result = {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": CardScript.new(giruda_suit, CardScript.Rank.ACE)}
+			_dp_friend_result = {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": CardScript.new(giruda_suit, CardScript.Rank.ACE)}
 			_highlight_btn.call(ace_btn)
 		)
 	else:
-		ace_btn = _make_btn.call("", true)
-		ace_btn.visible = false
+		ace_btn = _make_btn.call("기루다 A 프렌드", true)
 	grid.add_child(ace_btn)
 
 	# Row 2: 조커 / 기루다K
 	var joker_disabled: bool = _dp_is_card_in_hand_or_discard_specific(-1, -1)
 	var joker_btn: Button = _make_btn.call("조커 프렌드", joker_disabled)
 	joker_btn.pressed.connect(func():
-		chosen_result = {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": CardScript.create_joker()}
+		_dp_friend_result = {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": CardScript.create_joker()}
 		_highlight_btn.call(joker_btn)
 	)
 	grid.add_child(joker_btn)
@@ -1887,30 +1909,41 @@ func _dp_step_friend() -> Dictionary:
 	var king_btn: Button = null
 	if giruda_suit >= 0:
 		var king_disabled: bool = _dp_is_card_in_hand_or_discard_specific(giruda_suit, CardScript.Rank.KING)
-		king_btn = _make_btn.call("%s K 프렌드" % SUIT_DISPLAY.get(_dp.giruda, "?"), king_disabled)
+		king_btn = _make_btn.call("기루다 K 프렌드", king_disabled)
 		king_btn.pressed.connect(func():
-			chosen_result = {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": CardScript.new(giruda_suit, CardScript.Rank.KING)}
+			_dp_friend_result = {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": CardScript.new(giruda_suit, CardScript.Rank.KING)}
 			_highlight_btn.call(king_btn)
 		)
 	else:
-		king_btn = _make_btn.call("", true)
-		king_btn.visible = false
+		king_btn = _make_btn.call("기루다 K 프렌드", true)
 	grid.add_child(king_btn)
 
 	# Row 3: 초구 / 노프렌드
 	var first_btn: Button = _make_btn.call("초구 프렌드", false)
 	first_btn.pressed.connect(func():
-		chosen_result = {"type": DeclarerPhaseScript.FriendCallType.FIRST_TRICK_WINNER}
+		_dp_friend_result = {"type": DeclarerPhaseScript.FriendCallType.FIRST_TRICK_WINNER}
 		_highlight_btn.call(first_btn)
 	)
 	grid.add_child(first_btn)
 
 	var no_btn: Button = _make_btn.call("노 프렌드", false)
 	no_btn.pressed.connect(func():
-		chosen_result = {"type": DeclarerPhaseScript.FriendCallType.NO_FRIEND}
+		_dp_friend_result = {"type": DeclarerPhaseScript.FriendCallType.NO_FRIEND}
 		_highlight_btn.call(no_btn)
 	)
 	grid.add_child(no_btn)
+
+	# Row 4: 지정 프렌드 (cycles through players 1-4)
+	var _player_idx := [1]  # Array for lambda capture
+	var player_btn: Button = _make_btn.call("지정: %s" % PLAYER_NAMES[1], not _dp.options.allow_player_friend)
+	player_btn.pressed.connect(func():
+		_dp_friend_result = {"type": DeclarerPhaseScript.FriendCallType.PLAYER, "player_index": _player_idx[0]}
+		_highlight_btn.call(player_btn)
+		# Cycle to next player on next press
+		_player_idx[0] = (_player_idx[0] % 4) + 1
+		player_btn.text = "지정: %s" % PLAYER_NAMES[_player_idx[0]]
+	)
+	grid.add_child(player_btn)
 
 	vbox.add_child(grid)
 
@@ -1952,10 +1985,10 @@ func _dp_step_friend() -> Dictionary:
 			for e in suit_buttons:
 				e["button"].get_node("GoldBorder").visible = (e["suit"] == _dp_friend_suit)
 			_dp_update_custom_rank_label(other_row)
-			chosen_result = {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": CardScript.new(_dp_friend_suit, _dp_friend_rank)}
+			_dp_friend_result = {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": CardScript.new(_dp_friend_suit, _dp_friend_rank)}
 			for b in all_btns:
 				b.remove_theme_color_override("font_color")
-			_dp_update_friend_preview(chosen_result)
+			_dp_update_friend_preview(_dp_friend_result)
 		)
 		other_row.add_child(btn)
 		suit_buttons.append({"button": btn, "suit": suit_val})
@@ -1998,10 +2031,10 @@ func _dp_step_friend() -> Dictionary:
 		if next >= 0:
 			_dp_friend_rank = all_ranks[next]
 			_dp_update_custom_rank_label(other_row)
-			chosen_result = {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": CardScript.new(_dp_friend_suit, _dp_friend_rank)}
+			_dp_friend_result = {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": CardScript.new(_dp_friend_suit, _dp_friend_rank)}
 			for b in all_btns:
 				b.remove_theme_color_override("font_color")
-			_dp_update_friend_preview(chosen_result)
+			_dp_update_friend_preview(_dp_friend_result)
 	)
 	rank_down.pressed.connect(func():
 		var idx: int = all_ranks.find(_dp_friend_rank)
@@ -2009,10 +2042,10 @@ func _dp_step_friend() -> Dictionary:
 		if next >= 0:
 			_dp_friend_rank = all_ranks[next]
 			_dp_update_custom_rank_label(other_row)
-			chosen_result = {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": CardScript.new(_dp_friend_suit, _dp_friend_rank)}
+			_dp_friend_result = {"type": DeclarerPhaseScript.FriendCallType.CARD, "card": CardScript.new(_dp_friend_suit, _dp_friend_rank)}
 			for b in all_btns:
 				b.remove_theme_color_override("font_color")
-			_dp_update_friend_preview(chosen_result)
+			_dp_update_friend_preview(_dp_friend_result)
 	)
 	_dp_update_custom_rank_label(other_row)
 
@@ -2046,7 +2079,7 @@ func _dp_step_friend() -> Dictionary:
 	outer_vbox.add_child(confirm_btn)
 
 	confirm_btn.pressed.connect(func():
-		if _dp_awaiting_input and chosen_result.size() > 0:
+		if _dp_awaiting_input and _dp_friend_result.size() > 0:
 			_dp_awaiting_input = false
 	)
 
@@ -2055,7 +2088,7 @@ func _dp_step_friend() -> Dictionary:
 	add_child(_dp_panel)
 
 	# Update preview for initial recommendation
-	_dp_update_friend_preview(chosen_result)
+	_dp_update_friend_preview(_dp_friend_result)
 
 	await get_tree().process_frame
 	preview_img.size = preview_card_size
@@ -2067,7 +2100,7 @@ func _dp_step_friend() -> Dictionary:
 
 	_dp_panel.queue_free()
 	_dp_panel = null
-	return chosen_result
+	return _dp_friend_result
 
 
 func _dp_is_card_in_hand_or_discard_specific(suit: int, rank: int) -> bool:
@@ -2090,8 +2123,11 @@ func _dp_update_friend_preview(result: Dictionary) -> void:
 		return
 	var preview_img = _dp_panel.find_child("FriendPreview", true, false)
 	var preview_label = _dp_panel.find_child("FriendPreviewLabel", true, false)
+	var overlay = _dp_panel.find_child("FriendOverlay", true, false)
 	if not preview_img or not preview_label:
 		return
+	if overlay:
+		overlay.text = ""
 	var friend_type: int = result.get("type", -1)
 	if friend_type == DeclarerPhaseScript.FriendCallType.CARD and result.has("card"):
 		var card = result["card"]
@@ -2102,15 +2138,24 @@ func _dp_update_friend_preview(result: Dictionary) -> void:
 		elif CardValidatorScript.is_mighty(card, _dp.giruda):
 			preview_label.text = "마이티 프렌드"
 		else:
-			preview_label.text = "%s %s 프렌드" % [SUIT_DISPLAY.get(_card_suit_to_giruda(card.suit), "?"), RANK_DISPLAY.get(card.rank, "?")]
+			preview_label.text = "%s %s" % [SUIT_DISPLAY.get(_card_suit_to_giruda(card.suit), "?"), RANK_DISPLAY.get(card.rank, "?")]
 	elif friend_type == DeclarerPhaseScript.FriendCallType.FIRST_TRICK_WINNER:
 		preview_img.texture = CardTextureScript.get_back_texture()
 		preview_img.visible = true
 		preview_label.text = "초구 프렌드"
 	elif friend_type == DeclarerPhaseScript.FriendCallType.NO_FRIEND:
-		preview_img.texture = null
-		preview_img.visible = false
+		preview_img.texture = CardTextureScript.get_back_texture()
+		preview_img.visible = true
 		preview_label.text = "노 프렌드"
+		if overlay:
+			overlay.text = "X"
+	elif friend_type == DeclarerPhaseScript.FriendCallType.PLAYER:
+		preview_img.texture = CardTextureScript.get_back_texture()
+		preview_img.visible = true
+		var pi: int = result.get("player_index", -1)
+		preview_label.text = "%s 지정" % PLAYER_NAMES[pi] if pi >= 0 and pi < PLAYER_NAMES.size() else "지정 프렌드"
+		if overlay:
+			overlay.text = "?"
 	else:
 		preview_img.texture = null
 		preview_img.visible = false
