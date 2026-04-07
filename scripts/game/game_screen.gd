@@ -1943,12 +1943,13 @@ func _dp_step_friend() -> Dictionary:
 	if _dp.options.allow_player_friend:
 		var player_row := HBoxContainer.new()
 		player_row.alignment = BoxContainer.ALIGNMENT_CENTER
-		player_row.add_theme_constant_override("separation", 6)
+		player_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		for pi in range(1, 5):
 			var p_btn := Button.new()
 			p_btn.text = PLAYER_NAMES[pi]
 			p_btn.add_theme_font_size_override("font_size", small_font)
 			p_btn.add_theme_font_override("font", _get_bold_font())
+			p_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			all_btns.append(p_btn)
 			var captured_pi: int = pi
 			p_btn.pressed.connect(func():
@@ -1956,9 +1957,10 @@ func _dp_step_friend() -> Dictionary:
 				_highlight_btn.call(p_btn)
 			)
 			player_row.add_child(p_btn)
-		vbox.add_child(player_row)
-
 	vbox.add_child(grid)
+
+	if _dp.options.allow_player_friend:
+		vbox.add_child(player_row)
 	# 다른 카드: suit icons + rank up/down
 	var other_row := HBoxContainer.new()
 	other_row.alignment = BoxContainer.ALIGNMENT_CENTER
