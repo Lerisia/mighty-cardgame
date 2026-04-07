@@ -1418,17 +1418,17 @@ func _dp_step_giruda_change(raise_amount: int) -> void:
 	_dp_panel.visible = true
 
 	_dp_awaiting_input = true
-	var result: String = ""
+	var result: Array = [""]  # Array so lambda captures by reference
 
 	skip_btn.pressed.connect(func():
 		if _dp_awaiting_input:
 			_dp_awaiting_input = false
-			result = "skip"
+			result[0] = "skip"
 	)
 	change_btn.pressed.connect(func():
 		if _dp_awaiting_input:
 			_dp_awaiting_input = false
-			result = "change"
+			result[0] = "change"
 	)
 
 	while _dp_awaiting_input:
@@ -1438,14 +1438,12 @@ func _dp_step_giruda_change(raise_amount: int) -> void:
 	_dp_panel = null
 
 	var actually_changed: bool = _dp_selected_giruda != _dp.giruda or _dp_selected_bid != _dp.bid
-	if result == "change" and actually_changed:
+	if result[0] == "change" and actually_changed:
 		if raise_amount == 1:
 			var ok: bool = _dp.change_giruda_first(_dp_selected_giruda, _dp_selected_bid)
 			if not ok:
 				push_warning("change_giruda_first FAILED: sel_g=%d sel_b=%d dp_g=%d dp_b=%d" % [_dp_selected_giruda, _dp_selected_bid, _dp.giruda, _dp.bid])
 				_dp.skip_first_change()
-			else:
-				push_warning("change_giruda_first OK: now g=%d b=%d" % [_dp.giruda, _dp.bid])
 		else:
 			var ok: bool = _dp.change_giruda_second(_dp_selected_giruda, _dp_selected_bid)
 			if not ok:
@@ -1453,7 +1451,6 @@ func _dp_step_giruda_change(raise_amount: int) -> void:
 	else:
 		if raise_amount == 1:
 			_dp.skip_first_change()
-		push_warning("giruda_change skipped: result=%s changed=%s sel_g=%d sel_b=%d dp_g=%d dp_b=%d" % [result, str(actually_changed), _dp_selected_giruda, _dp_selected_bid, _dp.giruda, _dp.bid])
 
 
 func _dp_update_giruda_change_highlight(suit_buttons: Array, raise_amount: int) -> void:
