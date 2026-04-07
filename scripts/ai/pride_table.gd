@@ -116,17 +116,7 @@ static func calc_pride(giruda: int, hand: Array) -> int:
 	if giruda != BiddingStateScript.Giruda.NO_GIRUDA:
 		pride += ndem
 	else:
-		# No-giruda requires an exceptionally strong hand: mighty AND joker
-		# AND multiple aces. This should almost never be recommended.
-		var ace_count: int = 0
-		for card in hand:
-			if not card.is_joker and card.rank == CardScript.Rank.ACE:
-				if not _card_equals(card, mighty_card):
-					ace_count += 1
-		if has_mighty and has_joker and ace_count >= 2:
-			pride += BIAS + KIRUDA_COUNT_WEIGHT
-		elif has_mighty and has_joker:
-			pride += BIAS
+		pride += BIAS + KIRUDA_COUNT_WEIGHT
 		pride += ndem * 3
 
 	if hand.size() < 10:
